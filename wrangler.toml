@@ -12,7 +12,7 @@ run_worker_first = ["/api/*", "/__scheduled", "/", "/g/*", "/en", "/nl", "/fr", 
 [[d1_databases]]
 binding = "DB"
 database_name = "evenly"
-database_id = "VUL-IN-NA-D1-CREATE"
+database_id = "bee47509-351d-48ef-909e-356348e7d86e"
 
 # Rate limiting per IP: groepen aanmaken 20/min, andere schrijfacties 120/min.
 [[ratelimits]]
