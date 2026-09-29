@@ -69,9 +69,16 @@ test.describe('API', () => {
     }
     const st = await lid(request, g.id, 'Straße');
     expect(await lid(request, g.id, 'STRASSE')).toBe(st);
+    // Turks: Alı en Ali zijn verschillende namen; Hangul-vuller is onzichtbaar en telt niet
+    expect(await lid(request, g.id, 'Alı')).not.toBe(g.memberId);
+    expect((await request.post(`/api/groups/${g.id}/members`, { data: { name: '\u3164' } })).status()).toBe(400);
+    expect(await lid(request, g.id, 'Ali\u3164')).toBe(g.memberId);
+    // (niet-)verbindingstekens blijven in de naam: Perzische spelling en emoji-families
+    const fa = await lid(request, g.id, 'می\u200Cخواهم');
+    expect((await groep(request, g.id)).members.find((m) => m.id === fa).name).toBe('می\u200Cخواهم');
     const t = await lid(request, g.id, 'Tom');
     expect(t).not.toBe(s1);
-    expect((await groep(request, g.id)).members).toHaveLength(4);
+    expect((await groep(request, g.id)).members).toHaveLength(6);
   });
 
   test('A3 gelijk verdelen: restcent naar wie betaalde, som exact', async ({ request }) => {
@@ -142,6 +149,13 @@ test.describe('API', () => {
     expect(await fout({ amount: '1000' })).toBe('invalid_amount');
     expect(await fout({ amount: 1e13 })).toBe('invalid_amount');
     expect(await fout({ description: '   ' })).toBe('description_required');
+    expect(await fout({ description: '\u200B' })).toBe('description_required');
+    // alleen emoji mag wel, en een emoji-familie blijft heel
+    expect((await uitgave(request, g.id, { description: '🍕🍺', amount: 100, paidBy: a })).status()).toBe(201);
+    expect((await uitgave(request, g.id, { description: '👨\u200D👩\u200D👧 uitje', amount: 100, paidBy: a })).status()).toBe(201);
+    const gg = await groep(request, g.id);
+    expect(gg.expenses.map((e) => e.description)).toContain('👨\u200D👩\u200D👧 uitje');
+    for (const e of gg.expenses) await request.delete(`/api/groups/${g.id}/expenses/${e.id}`);
     expect(await fout({ date: '2026-02-30' })).toBe('invalid_date');
     expect(await fout({ date: '2999-01-01' })).toBe('invalid_date');
     expect(await fout({ paidBy: 'bestaatniet' })).toBe('member_not_found');
@@ -333,6 +347,8 @@ test.describe('API (na review)', () => {
     expect((await request.post(`/api/groups/${g.id}/settlements`, { data: { from: s, to: g.memberId, amount: 2500, date: vandaag() } })).status()).toBe(201);
     full = await groep(request, g.id);
     expect(full.transfers).toEqual([]);
+    // maar geen nieuw saldo maken voor een weggehaald lid
+    expect((await request.post(`/api/groups/${g.id}/settlements`, { data: { from: g.memberId, to: s, amount: 777, date: vandaag() } })).status()).toBe(404);
     // een lid van een andere groep blijft geweigerd
     const g2 = await maakGroep(request);
     expect((await request.post(`/api/groups/${g.id}/settlements`, { data: { from: g2.memberId, to: g.memberId, amount: 1, date: vandaag() } })).status()).toBe(404);
@@ -447,7 +463,7 @@ test.describe("Scenario's", () => {
     const g = await maakGroep(request);
     await page.addInitScript(([gid, mid]) => { localStorage.setItem('evenly.m.' + gid, mid); localStorage.setItem('evenly.lang', 'nl'); }, [g.id, g.memberId]);
     await page.goto('/g/' + g.id);
-    const gevallen = [['12,5', 1250], ['12.50', 1250], ['1.234,56', 123456], ['1,234.56', 123456], ['1 200', 120000], ['0,01', 1], ['12,345', 1234500], ['€ 7,50', 750]];
+    const gevallen = [['12,5', 1250], ['12.50', 1250], ['1.234,56', 123456], ['1,234.56', 123456], ['1 200', 120000], ['0,01', 1], ['12.345', 1234500], ['€ 7,50', 750]];
     for (const [tekst, centen] of gevallen) {
       await vulUitgave(page, 'b' + tekst, tekst);
       await page.click('.form button:has-text("Toevoegen")');
@@ -455,7 +471,7 @@ test.describe("Scenario's", () => {
       const full = await groep(request, g.id);
       expect(full.expenses.find((e) => e.description === 'b' + tekst).amount, tekst).toBe(centen);
     }
-    for (const fout of ['12,3456', 'abc', '0', '-5', '1.2.3']) {
+    for (const fout of ['12,345', '12,3456', 'abc', '0', '-5', '1.2.3', '12abc']) {
       await vulUitgave(page, 'fout', fout);
       await page.click('.form button:has-text("Toevoegen")');
       await expect(page.locator('.form p[role="alert"]')).toContainText('bedrag', { ignoreCase: true });

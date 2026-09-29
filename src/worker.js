@@ -155,15 +155,23 @@ function newId() {
 function now() {
   return new Date().toISOString();
 }
+// Sleutel om namen te vergelijken: ook zonder (niet-)verbindingstekens en variatiekiezers,
+// ß = ss; gewone toLowerCase zodat het Turkse ı en i verschillend blijven.
 function normKey(name) {
-  return name.normalize('NFKC').toUpperCase().toLowerCase().replace(/\s+/g, ' ');
+  return name.normalize('NFKC').replace(/[\u200C\u200D\uFE0E\uFE0F]/g, '').toLowerCase().replace(/ß/g, 'ss').replace(/\s+/g, ' ');
 }
-// Tekst van een gebruiker: NFKC, zonder stuur- en opmaaktekens (zero-width, bidi-overrides,
-// zachte afbreekstreepjes), vreemde spaties -> gewone spatie, en minstens één letter of cijfer.
+// Tekst van een gebruiker: NFKC; stuurtekens en onzichtbare opmaak weg (bidi-overrides, zero-width
+// space, zacht afbreekstreepje, Hangul-vullers), maar de (niet-)verbindingstekens U+200C/U+200D
+// blijven: die horen bij Perzische/Urdu-spelling, Devanagari en emoji zoals 👨‍👩‍👧.
+// Minstens één letter, cijfer of symbool (dus "🍕" mag, een lege of onzichtbare naam niet).
 function cleanText(raw, max) {
   if (typeof raw !== 'string') return null;
-  const t = raw.normalize('NFKC').replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/[\p{Zs}\u2800]+/gu, ' ').trim();
-  if (!/[\p{L}\p{N}]/u.test(t)) return null;
+  const t = raw.normalize('NFKC')
+    .replace(/[\p{Cc}]/gu, '')
+    .replace(/(?![\u200C\u200D])\p{Cf}/gu, '')
+    .replace(/[\u034F\u115F\u1160\u3164\uFFA0]/g, '')
+    .replace(/[\p{Zs}\u2800]+/gu, ' ').trim();
+  if (!/[\p{L}\p{N}\p{S}]/u.test(t)) return null;
   return t.length <= max ? t : null;
 }
 const cleanTitle = (r) => cleanText(r, 80);
@@ -542,6 +550,10 @@ async function updateExpense(env, groupId, eid, body) {
       .bind(e.description, e.amount, e.paidBy, e.date, e.split, now(), eid),
     env.DB.prepare('DELETE FROM expense_shares WHERE expense_id = ?').bind(eid),
     aandelenInvoegen(env, eid, e.shares),
+    // nieuw betrokken leden die intussen weggehaald werden, weer actief (niet de al betrokkenen)
+    env.DB.prepare(`UPDATE members SET deleted_at = NULL WHERE group_id = ? AND deleted_at IS NOT NULL
+      AND id IN (SELECT member_id FROM expense_shares WHERE expense_id = ? UNION SELECT paid_by FROM expenses WHERE id = ?)
+      AND id NOT IN (SELECT value FROM json_each(?))`).bind(groupId, eid, eid, JSON.stringify(betrokken)),
     raak(env, groupId),
   ]);
   return json({});
@@ -568,6 +580,14 @@ async function addSettlement(env, groupId, body) {
   // weggehaalde leden mogen: zo kan een saldo dat na hun vertrek ontstond toch vereffend worden
   const [a, b] = await Promise.all([groupMember(env, groupId, body.from), groupMember(env, groupId, body.to)]);
   if (!a || !b) return fail('member_not_found', 404);
+  // een weggehaald lid: alleen een bestaand saldo vereffenen, geen nieuw saldo maken
+  for (const [lid, richting] of [[a, -1], [b, 1]]) {
+    if (!lid.deleted_at) continue;
+    const r = await env.DB.prepare(`SELECT ${SALDO_SQL} AS net FROM members WHERE id = ?`).bind(lid.id).first();
+    const net = r ? r.net : 0;
+    // van een weggehaald lid: het moet nog geld geven (net < 0); naar een weggehaald lid: het moet nog krijgen (net > 0)
+    if (net * richting <= 0 || body.amount > Math.abs(net)) return fail('member_not_found', 404);
+  }
   const aantal = await env.DB.prepare('SELECT COUNT(*) AS c FROM settlements WHERE group_id = ?').bind(groupId).first();
   if (aantal && aantal.c >= MAX_SETTLEMENTS) return fail('limit_reached');
   const id = newId();

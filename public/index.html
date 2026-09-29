@@ -3206,11 +3206,20 @@ function muntSymbool(munt) {
 // erachter is een duizendtal, behalve bij munten met drie decimalen (dan beslist de taal).
 function leesGeld(tekst, munt) {
   const dec = decimalen(munt);
-  let s = latijnseCijfers(tekst).replace(/\u066B/g, '.').replace(/[\u066C\u060C]/g, ',');
+  let s = latijnseCijfers(tekst).replace(/\u066B/g, '.').replace(/[\u066C\u060C]/g, ',').trim();
+  // alleen het valutasymbool of de muntcode van deze groep mag ervoor of erachter staan ("€12", "12 zł", "KWD 5")
+  const tekens = new Set([munt, munt.toLowerCase()]);
+  for (const loc of [state.locale, 'en']) for (const disp of ['symbol', 'narrowSymbol']) {
+    try { const p = new Intl.NumberFormat(loc, { style: 'currency', currency: munt, currencyDisplay: disp }).formatToParts(1).find((x) => x.type === 'currency'); if (p) tekens.add(p.value); } catch {}
+  }
+  for (const tk of [...tekens].sort((a, b) => b.length - a.length)) {
+    if (s.startsWith(tk)) s = s.slice(tk.length).trim();
+    if (s.endsWith(tk)) s = s.slice(0, -tk.length).trim();
+  }
   s = s.replace(/[\s\u00a0\u202f'’`]/g, '');
-  s = s.replace(/^[^\d.,-]+|[^\d.,]+$/g, '');   // "€12", "12 zł", "US$ 5"
   if (!s || !/^\d[\d.,]*$|^[.,]\d+$/.test(s)) return { fout: 'format' };
-  const groepOk = (g, sep) => new RegExp('^\\d{1,3}(\\' + sep + '\\d{3})+$').test(g) || new RegExp('^\\d{1,2}(\\' + sep + '\\d{2})*\\' + sep + '\\d{3}$').test(g);
+  // duizendtallen: eerste groep zonder voorloopnul, daarna groepen van drie (of Indiaas: twee)
+  const groepOk = (g, sep) => new RegExp('^[1-9]\\d{0,2}(\\' + sep + '\\d{3})+$').test(g) || new RegExp('^[1-9]\\d?(\\' + sep + '\\d{2})*\\' + sep + '\\d{3}$').test(g);
   const heeftK = s.includes(','), heeftP = s.includes('.');
   let geheel = s, frac = '';
   if (heeftK && heeftP) {
@@ -3228,9 +3237,17 @@ function leesGeld(tekst, munt) {
       geheel = delen.join('');
     } else {
       const [a, b] = delen;
-      const duizendtal = b.length === 3 && a.length >= 1 && a.length <= 3 && (dec !== 3 || sep !== decimaalTeken());
-      if (duizendtal || (b.length === 3 && dec === 0)) { geheel = a + b; }
-      else if (b.length === 0) { geheel = a; }
+      // precies drie cijfers na één scheider: duizendtal of decimalen?
+      //  - begint met 0 ("0,500"): decimalen (en dus fout bij een munt met twee decimalen)
+      //  - munt zonder decimalen: duizendtal
+      //  - het decimaalteken van jouw taal bij een munt met 1-2 decimalen ("12,500" in het Nederlands): dubbelzinnig -> vragen
+      //  - munt met drie decimalen en het decimaalteken van je taal: decimalen; anders duizendtal
+      const eigenDecimaal = sep === decimaalTeken();
+      if (b.length === 3 && /^[1-9]\d{0,2}$/.test(a)) {
+        if (dec === 0 || (!eigenDecimaal)) geheel = a + b;
+        else if (dec === 3) { geheel = a; frac = b; }
+        else return { fout: 'format' };
+      } else if (b.length === 0) { geheel = a; }
       else { geheel = a; frac = b; }
     }
   }
@@ -3596,7 +3613,7 @@ function schermGroep(groupId) {
   alleZone.append(alleBtn, alleBevestig);
   titelActies.append(titelEditBtn, alleZone);
   titelRij.append(muntBadge, titelKop, titelActies, titelEditor, titelFout);
-  titelIn.setAttribute('aria-label', 'title');
+
 
   const saldiBlok = el('div', 'saldi');
   const transfersBlok = el('div', 'transfers verborgen');
@@ -3787,6 +3804,7 @@ function schermGroep(groupId) {
     ledenFout.classList.add('verborgen');
     if (r.ok || r.status === 404) {
       if (mid === state.own) zetIk(null);
+      state.focusNa = '.chip.toevoegen';
       state.lastJson = ''; await haalOp(true);
     } else {
       ledenFout.textContent = foutTekst(r.data, { name: naam });
@@ -3948,6 +3966,7 @@ function schermGroep(groupId) {
   fWie.addEventListener('change', () => { fWieGekozen = true; toonPreview(); });
   // betaler-lijst: jij standaard; een zelfgekozen betaler of (bij aanpassen) de bestaande blijft staan
   function vulWie() {
+    if (document.activeElement === fWie) return;   // een open keuzelijst niet dichtklappen
     const oud = fWie.value;
     const lijst = formLeden();
     fWie.textContent = '';
@@ -4059,7 +4078,7 @@ function schermGroep(groupId) {
   async function verwijderItem(soort, id) {
     const r = await api('/groups/' + groupId + '/' + soort + '/' + id, 'DELETE');
     state.verwijderVraag = null;
-    if (r.ok || r.status === 404) { if (state.bewerk === id) formLeeg(); state.lastJson = ''; await haalOp(true); }
+    if (r.ok || r.status === 404) { if (state.bewerk === id) formLeeg(); state.focusNa = '.lijstkop h2'; state.lastJson = ''; await haalOp(true); }
     else { lijstFout.textContent = foutTekst(r.data); lijstFout.classList.remove('verborgen'); render(); }
   }
 
@@ -4137,7 +4156,8 @@ function schermGroep(groupId) {
       ...d.settlements.map((s) => ({ soort: 'settlements', e: s, sort: s.date + '|' + s.createdAt })),
     ].sort((a, b) => (a.sort < b.sort ? 1 : a.sort > b.sort ? -1 : 0));
     const kop = el('div', 'lijstkop');
-    kop.append(el('h2', null, t('expense.list')));
+    const kopH = el('h2', null, t('expense.list')); kopH.tabIndex = -1;
+    kop.append(kopH);
     if (d.expenses.length) {
       const totaal = d.expenses.reduce((s, e) => s + e.amount, 0);
       kop.append(el('span', 'totaal', t('expense.count', { n: d.expenses.length }) + ' · ' + t('expense.total', { amount: geld(totaal) })));
@@ -4211,6 +4231,7 @@ function schermGroep(groupId) {
     titelEditBtn.textContent = t('title.edit');
     titelOk.textContent = t('title.save');
     titelTerug.textContent = t('expense.cancel');
+    titelIn.setAttribute('aria-label', t('make.what'));
     titelIn.placeholder = t('make.what.ph');
     alleBtn.textContent = t('group.delete'); alleJa.textContent = t('group.deleteYes'); alleNee.textContent = t('never.mind');
     deelTekst.textContent = (netGemaakt ? t('share.ready') : t('share.link')) + ' ';
