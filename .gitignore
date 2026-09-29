@@ -5,3 +5,4 @@ playwright-report/
 .dev.vars
 _to_delete/
 dist/
+node_modules

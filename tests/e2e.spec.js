@@ -61,9 +61,17 @@ test.describe('API', () => {
     // NFKC: volbreedte-letters zijn dezelfde naam
     expect(await lid(request, g.id, 'Ｓｏｆｉｅ')).toBe(s1);
     expect(await lid(request, g.id, 'Ali')).toBe(g.memberId);
+    // onzichtbare tekens tellen niet: zelfde lid; een naam zonder letters of cijfers mag niet
+    expect(await lid(request, g.id, 'Sof\u200Bie')).toBe(s1);
+    expect(await lid(request, g.id, '\u202ESofie')).toBe(s1);
+    for (const leeg of ['\u200B', '\u2800', '\u00AD', '...']) {
+      expect((await request.post(`/api/groups/${g.id}/members`, { data: { name: leeg } })).status(), JSON.stringify(leeg)).toBe(400);
+    }
+    const st = await lid(request, g.id, 'Straße');
+    expect(await lid(request, g.id, 'STRASSE')).toBe(st);
     const t = await lid(request, g.id, 'Tom');
     expect(t).not.toBe(s1);
-    expect((await groep(request, g.id)).members).toHaveLength(3);
+    expect((await groep(request, g.id)).members).toHaveLength(4);
   });
 
   test('A3 gelijk verdelen: restcent naar wie betaalde, som exact', async ({ request }) => {
@@ -125,6 +133,9 @@ test.describe('API', () => {
     expect(await fout({ split: 'equal', members: [] })).toBe('invalid_split');
     expect(await fout({ split: 'equal', members: ['bestaatniet'] })).toBe('invalid_split');
     expect(await fout({ split: 'magie' })).toBe('invalid_split');
+    expect(await fout({ split: 'equal', members: 'abc' })).toBe('invalid_split');
+    expect(await fout({ split: 'equal', members: { 0: a } })).toBe('invalid_split');
+    expect(await fout({ paidBy: 12 })).toBe('invalid_split');
     expect(await fout({ amount: 0 })).toBe('invalid_amount');
     expect(await fout({ amount: -5 })).toBe('invalid_amount');
     expect(await fout({ amount: 12.5 })).toBe('invalid_amount');
@@ -304,6 +315,88 @@ test.describe('API', () => {
   });
 });
 
+test.describe('API (na review)', () => {
+  test.beforeEach(({ }, info) => { test.skip(info.project.name !== 'desktop', 'API-testen één keer'); });
+
+  test('A15 weggehaald lid met een saldo kan toch vereffend worden', async ({ request }) => {
+    const g = await maakGroep(request);
+    const s = await lid(request, g.id, 'Sofie');
+    await uitgave(request, g.id, { description: 'Hotel', amount: 5000, paidBy: g.memberId });
+    const sid = (await (await request.post(`/api/groups/${g.id}/settlements`, { data: { from: s, to: g.memberId, amount: 2500, date: vandaag() } })).json()).settlementId;
+    expect((await request.delete(`/api/groups/${g.id}/members/${s}`)).status()).toBe(200);
+    // iemand zet de betaling terug: Sofie (weggehaald) moet weer 25,00
+    expect((await request.delete(`/api/groups/${g.id}/settlements/${sid}`)).status()).toBe(200);
+    let full = await groep(request, g.id);
+    expect(full.transfers).toEqual([{ from: s, to: g.memberId, amount: 2500 }]);
+    expect(full.balances.find((b) => b.memberId === s).net).toBe(-2500);
+    // "Betaald" werkt ook met een weggehaald lid
+    expect((await request.post(`/api/groups/${g.id}/settlements`, { data: { from: s, to: g.memberId, amount: 2500, date: vandaag() } })).status()).toBe(201);
+    full = await groep(request, g.id);
+    expect(full.transfers).toEqual([]);
+    // een lid van een andere groep blijft geweigerd
+    const g2 = await maakGroep(request);
+    expect((await request.post(`/api/groups/${g.id}/settlements`, { data: { from: g2.memberId, to: g.memberId, amount: 1, date: vandaag() } })).status()).toBe(404);
+  });
+
+  test('A16 oude uitgave met een weggehaald lid blijft aan te passen, zonder dat het lid stil verdwijnt', async ({ request }) => {
+    const g = await maakGroep(request);
+    const a = g.memberId;
+    const s = await lid(request, g.id, 'Sofie');
+    const t = await lid(request, g.id, 'Tom');
+    const eid = (await (await uitgave(request, g.id, { description: 'Taxi', amount: 3000, paidBy: s })).json()).expenseId;
+    // Sofie betaalde 30, deelt 10: krijgt 20. Tom en Ali betalen haar elk 10; dan kan ze weg.
+    await request.post(`/api/groups/${g.id}/settlements`, { data: { from: t, to: s, amount: 1000, date: vandaag() } });
+    await request.post(`/api/groups/${g.id}/settlements`, { data: { from: a, to: s, amount: 1000, date: vandaag() } });
+    expect((await request.delete(`/api/groups/${g.id}/members/${s}`)).status()).toBe(200);
+    // omschrijving aanpassen met dezelfde deelnemers (Sofie weggehaald) en Sofie als betaler: mag
+    const put = await request.put(`/api/groups/${g.id}/expenses/${eid}`, { data: { description: 'Taxi naar huis', amount: 3000, paidBy: s, date: vandaag(), split: 'equal', members: [a, s, t] } });
+    expect(put.status()).toBe(200);
+    const full = await groep(request, g.id);
+    expect(full.expenses[0].description).toBe('Taxi naar huis');
+    expect(full.expenses[0].shares.map((x) => x.memberId).sort()).toEqual([a, s, t].sort());
+    expect(full.balances.every((b) => b.net === 0)).toBeTruthy();
+    // maar een nieuwe uitgave met Sofie kan niet
+    expect((await uitgave(request, g.id, { description: 'x', amount: 100, paidBy: a, members: [a, s] })).status()).toBe(400);
+  });
+
+  test('A17 wie precies evenveel moet als een ander krijgt, betaalt die rechtstreeks', async ({ request }) => {
+    const g = await maakGroep(request);
+    const [A, B] = [g.memberId, await lid(request, g.id, 'B')];
+    const C = await lid(request, g.id, 'C');
+    const D = await lid(request, g.id, 'D');
+    const E = await lid(request, g.id, 'E');
+    // saldi A +600, B +500, C -500, D -400, E -200
+    await uitgave(request, g.id, { description: '1', amount: 600, paidBy: A, split: 'exact', shares: { [C]: 100, [D]: 400, [E]: 100 } });
+    await uitgave(request, g.id, { description: '2', amount: 500, paidBy: B, split: 'exact', shares: { [C]: 400, [E]: 100 } });
+    const full = await groep(request, g.id);
+    expect(full.transfers).toHaveLength(3);
+    expect(full.transfers).toContainEqual({ from: C, to: B, amount: 500 });
+  });
+
+  test('A18 munt vast na een (ook verwijderde) uitgave; bezoek zonder body; grote body geweigerd', async ({ request }) => {
+    const g = await maakGroep(request);
+    const eid = (await (await uitgave(request, g.id, { description: 'x', amount: 100, paidBy: g.memberId })).json()).expenseId;
+    await request.delete(`/api/groups/${g.id}/expenses/${eid}`);
+    expect((await request.put(`/api/groups/${g.id}/currency`, { data: { currency: 'JPY' } })).status()).toBe(409);
+    expect((await request.post(`/api/groups/${g.id}/visit`)).status()).toBe(200);
+    expect((await request.post('/api/groups/zzzzzzzzzz/visit')).status()).toBe(404);
+    const groot = await request.post('/api/groups', { data: { title: 'x'.repeat(40000), name: 'A', currency: 'EUR' } });
+    expect(groot.status()).toBe(400);
+  });
+
+  test('A19 veel leden in één uitgave (één statement voor alle aandelen)', async ({ request }) => {
+    const g = await maakGroep(request);
+    const ids = [g.memberId];
+    for (let i = 0; i < 60; i++) ids.push(await lid(request, g.id, 'L' + i));
+    const r = await uitgave(request, g.id, { description: 'Groot feest', amount: 610001, paidBy: g.memberId });
+    expect(r.status()).toBe(201);
+    const full = await groep(request, g.id);
+    expect(full.expenses[0].shares).toHaveLength(61);
+    expect(full.expenses[0].shares.reduce((a, x) => a + x.share, 0)).toBe(610001);
+    expect(somSaldi(full)).toBe(0);
+  });
+});
+
 /* ================================================================
    Scenario's in de browser
    ================================================================ */
@@ -354,7 +447,7 @@ test.describe("Scenario's", () => {
     const g = await maakGroep(request);
     await page.addInitScript(([gid, mid]) => { localStorage.setItem('evenly.m.' + gid, mid); localStorage.setItem('evenly.lang', 'nl'); }, [g.id, g.memberId]);
     await page.goto('/g/' + g.id);
-    const gevallen = [['12,5', 1250], ['12.50', 1250], ['1.234,56', 123456], ['1,234.56', 123456], ['1 200', 120000], ['0,01', 1]];
+    const gevallen = [['12,5', 1250], ['12.50', 1250], ['1.234,56', 123456], ['1,234.56', 123456], ['1 200', 120000], ['0,01', 1], ['12,345', 1234500], ['€ 7,50', 750]];
     for (const [tekst, centen] of gevallen) {
       await vulUitgave(page, 'b' + tekst, tekst);
       await page.click('.form button:has-text("Toevoegen")');
@@ -362,7 +455,7 @@ test.describe("Scenario's", () => {
       const full = await groep(request, g.id);
       expect(full.expenses.find((e) => e.description === 'b' + tekst).amount, tekst).toBe(centen);
     }
-    for (const fout of ['12,345', 'abc', '0', '-5']) {
+    for (const fout of ['12,3456', 'abc', '0', '-5', '1.2.3']) {
       await vulUitgave(page, 'fout', fout);
       await page.click('.form button:has-text("Toevoegen")');
       await expect(page.locator('.form p[role="alert"]')).toContainText('bedrag', { ignoreCase: true });
@@ -593,6 +686,86 @@ test.describe("Scenario's", () => {
     await page.waitForTimeout(11_000);
     await expect(page.locator('#fwat')).toHaveValue('Half getypt');
     await expect(page.locator('#fwat')).toBeFocused();
+  });
+
+  test('S16 wie meedoet via de link, betaalt standaard zelf (niet de maker)', async ({ browser, request }, info) => {
+    const g = await maakGroep(request);
+    const ctx = await nieuweContext(browser, info);
+    const page = await ctx.newPage();
+    await page.goto('/g/' + g.id);
+    await page.fill('#joinnaam', 'Bram');
+    await page.click('.kaart button:has-text("Verder")');
+    await expect(page.locator('.chip.ik')).toContainText('Bram');
+    await expect(page.locator('#fwie option:checked')).toContainText('Bram');
+    await vulUitgave(page, 'Pizza', '24,60');
+    await page.click('.form button:has-text("Toevoegen")');
+    await expect(page.locator('.item', { hasText: 'Pizza' })).toContainText('Jij betaalde');
+    const full = await groep(request, g.id);
+    expect(full.members.find((m) => m.id === full.expenses[0].paidBy).name).toBe('Bram');
+    await ctx.close();
+  });
+
+  test('S17 Arabisch: een uitgave aanpassen en bewaren werkt (decimaalteken)', async ({ page, request }) => {
+    const g = await maakGroep(request);
+    await uitgave(request, g.id, { description: 'عشاء', amount: 1250, paidBy: g.memberId });
+    await page.addInitScript(([gid, mid]) => { localStorage.setItem('evenly.m.' + gid, mid); localStorage.setItem('evenly.lang', 'ar'); }, [g.id, g.memberId]);
+    await page.goto('/g/' + g.id);
+    await page.locator('.item', { hasText: 'عشاء' }).locator('.acties button').first().click();
+    await page.fill('#fwat', 'عشاء كبير');
+    await page.locator('.formknoppen button').first().click();
+    await expect(page.locator('.item', { hasText: 'عشاء كبير' })).toBeVisible();
+    const full = await groep(request, g.id);
+    expect(full.expenses[0].amount).toBe(1250);
+    expect(full.expenses[0].description).toBe('عشاء كبير');
+  });
+
+  test('S18 offline: duidelijke fout, en na herstel werkt de knop weer', async ({ browser, request }, info) => {
+    const g = await maakGroep(request);
+    const ctx = await nieuweContext(browser, info);
+    const page = await ctx.newPage();
+    await page.addInitScript(([gid, mid]) => { localStorage.setItem('evenly.m.' + gid, mid); localStorage.setItem('evenly.lang', 'nl'); }, [g.id, g.memberId]);
+    await page.goto('/g/' + g.id);
+    await expect(page.locator('.saldi')).toBeVisible();
+    await ctx.setOffline(true);
+    await vulUitgave(page, 'Koffie', '3');
+    await page.click('.form button:has-text("Toevoegen")');
+    await expect(page.locator('.form p[role="alert"]')).toContainText('offline');
+    await expect(page.locator('.form button:has-text("Toevoegen")')).toBeEnabled();
+    await ctx.setOffline(false);
+    await page.click('.form button:has-text("Toevoegen")');
+    await expect(page.locator('.item', { hasText: 'Koffie' })).toBeVisible();
+    await ctx.close();
+  });
+
+  test('S19 duizendtallen en valutasymbolen in het bedrag', async ({ page, request }) => {
+    const g = await maakGroep(request, { currency: 'JPY' });
+    await page.addInitScript(([gid, mid]) => { localStorage.setItem('evenly.m.' + gid, mid); localStorage.setItem('evenly.lang', 'nl'); }, [g.id, g.memberId]);
+    await page.goto('/g/' + g.id);
+    await vulUitgave(page, 'Sushi', '¥1,200');
+    await page.click('.form button:has-text("Toevoegen")');
+    await expect(page.locator('.item', { hasText: 'Sushi' })).toBeVisible();
+    expect((await groep(request, g.id)).expenses[0].amount).toBe(1200);
+    await vulUitgave(page, 'Fout', '12.50.');
+    await page.click('.form button:has-text("Toevoegen")');
+    await expect(page.locator('.form p[role="alert"]')).toContainText('bv.');
+  });
+
+  test('S20 "niet jij?" laat je opnieuw kiezen; × pas zichtbaar als je weet wie je bent', async ({ browser, request }, info) => {
+    const g = await maakGroep(request);
+    await lid(request, g.id, 'Sofie');
+    const ctx = await nieuweContext(browser, info);
+    const page = await ctx.newPage();
+    await page.addInitScript(() => localStorage.setItem('evenly.lang', 'nl'));
+    await page.goto('/g/' + g.id);
+    await expect(page.locator('.chip-x')).toHaveCount(0);
+    await page.locator('.chip', { hasText: 'Ali' }).click();
+    await expect(page.locator('.chip.ik')).toContainText('Ali');
+    await expect(page.locator('.chip-x')).toHaveCount(2);
+    await page.click('.nietik');
+    await expect(page.locator('#joinnaam')).toBeVisible();
+    await page.locator('.chip', { hasText: 'Sofie' }).click();
+    await expect(page.locator('.chip.ik')).toContainText('Sofie');
+    await ctx.close();
   });
 
   test('S15 mobiel 360 px: geen horizontale scroll, knoppen minstens 44 px hoog', async ({ page, request }, info) => {

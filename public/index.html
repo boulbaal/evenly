@@ -101,7 +101,8 @@
   /* saldi */
   .saldi { margin: 12px 0 0; background: #F6F8F9; border-radius: 14px; padding: 14px 18px; }
   .saldi h2 { margin: 0 0 6px; }
-  .saldo { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--lijn); }
+  .saldo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 2px 10px; padding: 7px 0; border-top: 1px solid var(--lijn); }
+  .saldo .naam { flex: 1 1 8em; }
   .saldo:first-of-type { border-top: none; }
   .saldo .naam { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
   .saldo .bedrag { font-weight: 600; white-space: nowrap; }
@@ -129,7 +130,9 @@
   .chip bdi { overflow-wrap: anywhere; }
   .chip.ik { border-color: var(--accent); background: var(--lichtaccent); font-weight: 600; }
   .chip.toevoegen { border-style: dashed; color: var(--accent); font-weight: 600; }
-  .chipwrap { position: relative; display: inline-flex; padding: 8px 8px 0 0; }
+  .chipwrap { position: relative; display: inline-flex; padding-block-start: 8px; padding-inline-end: 8px; }
+  .nietik { background: none; color: var(--gedempt); font-size: 13px; font-weight: 400; text-decoration: underline; padding: 8px 4px; min-height: 44px; align-self: flex-end; }
+  .chip.stil { cursor: default; }
   .chipwrap .chip { padding-inline-end: 18px; }
   .chip-x { position: absolute; top: -8px; inset-inline-end: -8px; width: 44px; height: 44px; min-height: 44px; padding: 0; background: none; border: none; color: var(--gedempt); display: flex; align-items: center; justify-content: center; }
   .chip-x span { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 1px solid var(--rand); display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; font-weight: 400; }
@@ -149,6 +152,8 @@
   @media (max-width: 480px) { .rij2 { grid-template-columns: 1fr; } }
   .bedragveld { position: relative; }
   .bedragveld input { padding-inline-start: 2.6em; }
+  .verdeelrij input[aria-invalid="true"] { border-color: var(--rood); box-shadow: 0 0 0 1px var(--rood); }
+  .titelfout { color: var(--rood); font-size: 14px; margin: 4px 0 0; }
   .bedragveld .symbool { position: absolute; inset-inline-start: 12px; top: 50%; transform: translateY(-50%); color: var(--gedempt); font-size: 15px; }
   .splitkeuze { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .splitkeuze button { background: none; border: 1px solid var(--lijn); color: var(--tekst); font-weight: 400; font-size: 15px; padding: 8px 14px; border-radius: 22px; }
@@ -289,6 +294,9 @@ const TALEN = {
 // Ontbreekt een sleutel, dan valt t() terug op het Engels.
 const VERTALINGEN = {
 en: {
+  "err.amount_format": "Enter the amount as a number, e.g. {example}.",
+  "err.amount_too_large": "That amount is too large.",
+  "members.notYou": "not you?",
   'make.title': 'Who owes what?',
   'make.tagline': 'Split costs with your group. No account, no ads, free.',
   'make.what': 'What is it about?',
@@ -406,6 +414,9 @@ en: {
   'err.not_found': 'Not found. Someone may have deleted it.',
 },
 nl: {
+  "err.amount_format": "Vul het bedrag in als getal, bv. {example}.",
+  "err.amount_too_large": "Dat bedrag is te groot.",
+  "members.notYou": "niet jij?",
   'make.title': 'Wie moet wat?',
   'make.tagline': 'Kosten delen met je groep. Zonder account, zonder reclame, gratis.',
   'make.what': 'Waarover gaat het?',
@@ -523,6 +534,9 @@ nl: {
   'err.not_found': 'Niet gevonden. Misschien heeft iemand het verwijderd.',
 },
 fr: {
+  "err.amount_format": "Indique le montant en chiffres, p.ex. {example}.",
+  "err.amount_too_large": "Ce montant est trop élevé.",
+  "members.notYou": "pas toi ?",
   "make.title": "Qui doit quoi ?",
   "make.tagline": "Partagez les dépenses de votre groupe. Sans compte, sans pub, gratuit.",
   "make.what": "De quoi s'agit-il ?",
@@ -640,6 +654,9 @@ fr: {
   "err.not_found": "Introuvable. Quelqu'un l'a peut-être supprimé.",
 },
 de: {
+  "err.amount_format": "Gib den Betrag als Zahl ein, z. B. {example}.",
+  "err.amount_too_large": "Dieser Betrag ist zu hoch.",
+  "members.notYou": "nicht du?",
   "make.title": "Wer schuldet was?",
   "make.tagline": "Kosten in der Gruppe teilen. Ohne Konto, ohne Werbung, kostenlos.",
   "make.what": "Worum geht es?",
@@ -757,6 +774,9 @@ de: {
   "err.not_found": "Nicht gefunden. Vielleicht hat es jemand gelöscht.",
 },
 es: {
+  "err.amount_format": "Escribe el importe como número, p. ej. {example}.",
+  "err.amount_too_large": "Ese importe es demasiado alto.",
+  "members.notYou": "¿no eres tú?",
   "make.title": "¿Quién debe qué?",
   "make.tagline": "Reparte los gastos con tu grupo. Sin cuenta, sin anuncios, gratis.",
   "make.what": "¿De qué se trata?",
@@ -874,6 +894,9 @@ es: {
   "err.not_found": "No encontrado. Puede que alguien lo haya eliminado.",
 },
 pt: {
+  "err.amount_format": "Escreve o valor como número, ex. {example}.",
+  "err.amount_too_large": "Esse valor é demasiado alto.",
+  "members.notYou": "não és tu?",
   "make.title": "Quem deve o quê?",
   "make.tagline": "Divide as despesas com o teu grupo. Sem conta, sem anúncios, grátis.",
   "make.what": "Sobre o que é?",
@@ -991,6 +1014,9 @@ pt: {
   "err.not_found": "Não encontrado. Talvez alguém o tenha apagado.",
 },
 pl: {
+  "err.amount_format": "Wpisz kwotę jako liczbę, np. {example}.",
+  "err.amount_too_large": "Ta kwota jest za duża.",
+  "members.notYou": "to nie ty?",
   "make.title": "Kto ile jest winien?",
   "make.tagline": "Dziel koszty w grupie. Bez konta, bez reklam, za darmo.",
   "make.what": "O co chodzi?",
@@ -1108,6 +1134,9 @@ pl: {
   "err.not_found": "Nie znaleziono. Może ktoś to usunął.",
 },
 uk: {
+  "err.amount_format": "Введіть суму числом, напр. {example}.",
+  "err.amount_too_large": "Ця сума завелика.",
+  "members.notYou": "це не ви?",
   "make.title": "Хто кому винен?",
   "make.tagline": "Діліть витрати з групою. Без акаунта, без реклами, безкоштовно.",
   "make.what": "Про що йдеться?",
@@ -1225,6 +1254,9 @@ uk: {
   "err.not_found": "Не знайдено. Можливо, хтось це видалив.",
 },
 ru: {
+  "err.amount_format": "Введите сумму числом, напр. {example}.",
+  "err.amount_too_large": "Слишком большая сумма.",
+  "members.notYou": "это не вы?",
   "make.title": "Кто кому должен?",
   "make.tagline": "Делите расходы с группой. Без аккаунта, без рекламы, бесплатно.",
   "make.what": "О чём речь?",
@@ -1342,6 +1374,9 @@ ru: {
   "err.not_found": "Не найдено. Возможно, кто-то это удалил.",
 },
 tr: {
+  "err.amount_format": "Tutarı sayı olarak yaz, örn. {example}.",
+  "err.amount_too_large": "Bu tutar çok büyük.",
+  "members.notYou": "sen değil misin?",
   "make.title": "Kim ne kadar borçlu?",
   "make.tagline": "Masrafları grubunla paylaş. Hesap yok, reklam yok, ücretsiz.",
   "make.what": "Konu ne?",
@@ -1459,6 +1494,9 @@ tr: {
   "err.not_found": "Bulunamadı. Belki biri silmiştir.",
 },
 ar: {
+  "err.amount_format": "أدخل المبلغ كرقم، مثلاً {example}.",
+  "err.amount_too_large": "هذا المبلغ كبير جداً.",
+  "members.notYou": "لست أنت؟",
   "make.title": "من يدين بماذا؟",
   "make.tagline": "اقتسموا المصاريف مع مجموعتكم. بدون حساب، بدون إعلانات، مجاناً.",
   "make.what": "ما المناسبة؟",
@@ -1576,6 +1614,9 @@ ar: {
   "err.not_found": "غير موجود. ربما حذفه أحدهم.",
 },
 ur: {
+  "err.amount_format": "رقم ہندسوں میں لکھیں، مثلاً {example}۔",
+  "err.amount_too_large": "یہ رقم بہت زیادہ ہے۔",
+  "members.notYou": "آپ نہیں ہیں؟",
   "make.title": "کس نے کتنا دینا ہے؟",
   "make.tagline": "اپنے گروپ کے ساتھ خرچے بانٹیں۔ نہ اکاؤنٹ، نہ اشتہار، مفت۔",
   "make.what": "کس بارے میں ہے؟",
@@ -1693,6 +1734,9 @@ ur: {
   "err.not_found": "نہیں ملا۔ شاید کسی نے حذف کر دیا ہے۔",
 },
 hi: {
+  "err.amount_format": "राशि अंकों में लिखें, जैसे {example}।",
+  "err.amount_too_large": "यह राशि बहुत ज़्यादा है।",
+  "members.notYou": "आप नहीं हैं?",
   "make.title": "किसे कितना देना है?",
   "make.tagline": "अपने ग्रुप के साथ खर्च बाँटें। न अकाउंट, न विज्ञापन, मुफ़्त।",
   "make.what": "किस बारे में है?",
@@ -1810,6 +1854,9 @@ hi: {
   "err.not_found": "नहीं मिला। शायद किसी ने हटा दिया है।",
 },
 bn: {
+  "err.amount_format": "পরিমাণটি সংখ্যায় লিখুন, যেমন {example}।",
+  "err.amount_too_large": "এই পরিমাণটি অনেক বেশি।",
+  "members.notYou": "আপনি নন?",
   "make.title": "কে কত পাবে?",
   "make.tagline": "আপনার দলের সাথে খরচ ভাগ করুন। কোনো অ্যাকাউন্ট নেই, বিজ্ঞাপন নেই, বিনামূল্যে।",
   "make.what": "কী নিয়ে?",
@@ -1927,6 +1974,9 @@ bn: {
   "err.not_found": "পাওয়া যায়নি। হয়তো কেউ মুছে ফেলেছে।",
 },
 id: {
+  "err.amount_format": "Isi jumlah dalam angka, mis. {example}.",
+  "err.amount_too_large": "Jumlah itu terlalu besar.",
+  "members.notYou": "bukan kamu?",
   "make.title": "Siapa berutang apa?",
   "make.tagline": "Bagi pengeluaran dengan grupmu. Tanpa akun, tanpa iklan, gratis.",
   "make.what": "Tentang apa?",
@@ -2044,6 +2094,9 @@ id: {
   "err.not_found": "Tidak ditemukan. Mungkin sudah dihapus seseorang.",
 },
 vi: {
+  "err.amount_format": "Nhập số tiền bằng chữ số, ví dụ {example}.",
+  "err.amount_too_large": "Số tiền này quá lớn.",
+  "members.notYou": "không phải bạn?",
   "make.title": "Ai nợ ai?",
   "make.tagline": "Chia chi phí với nhóm của bạn. Không tài khoản, không quảng cáo, miễn phí.",
   "make.what": "Về việc gì?",
@@ -2161,6 +2214,9 @@ vi: {
   "err.not_found": "Không tìm thấy. Có thể ai đó đã xóa.",
 },
 zh: {
+  "err.amount_format": "请用数字输入金额，例如 {example}。",
+  "err.amount_too_large": "金额太大了。",
+  "members.notYou": "不是你？",
   "make.title": "谁欠谁多少？",
   "make.tagline": "和朋友一起分摊费用。无需账号，没有广告，免费。",
   "make.what": "是关于什么的？",
@@ -2278,6 +2334,9 @@ zh: {
   "err.not_found": "未找到，可能已被别人删除。",
 },
 ja: {
+  "err.amount_format": "金額は数字で入力してください（例：{example}）。",
+  "err.amount_too_large": "金額が大きすぎます。",
+  "members.notYou": "あなたではない？",
   "make.title": "誰がいくら払う？",
   "make.tagline": "グループで費用を割り勘。アカウント不要、広告なし、無料。",
   "make.what": "何のグループですか？",
@@ -2395,6 +2454,9 @@ ja: {
   "err.not_found": "見つかりません。誰かが削除した可能性があります。",
 },
 ko: {
+  "err.amount_format": "금액을 숫자로 입력하세요 (예: {example}).",
+  "err.amount_too_large": "금액이 너무 커요.",
+  "members.notYou": "내가 아니에요?",
   "make.title": "누가 얼마를 내야 할까?",
   "make.tagline": "그룹과 비용을 나누세요. 계정 없이, 광고 없이, 무료.",
   "make.what": "무슨 모임인가요?",
@@ -2512,6 +2574,9 @@ ko: {
   "err.not_found": "찾을 수 없어요. 누군가 삭제했을 수 있어요.",
 },
 sw: {
+  "err.amount_format": "Andika kiasi kwa tarakimu, mf. {example}.",
+  "err.amount_too_large": "Kiasi hicho ni kikubwa mno.",
+  "members.notYou": "si wewe?",
   "make.title": "Nani anadaiwa nini?",
   "make.tagline": "Gawanya gharama na kikundi chako. Bila akaunti, bila matangazo, bure.",
   "make.what": "Inahusu nini?",
@@ -2629,6 +2694,9 @@ sw: {
   "err.not_found": "Haikupatikana. Huenda mtu ameifuta.",
 },
 zgh: {
+  "err.amount_format": "ⴰⵔⴰ ⴰⵜⵉⴳ ⵙ ⵓⵎⴹⴰⵏ, ⵣⵓⵏ ⴷ {example}.",
+  "err.amount_too_large": "ⴰⵜⵉⴳ ⴰⴷ ⵉⵎⵇⵇⵓⵔ ⴰⵟⵟⴰⵚ.",
+  "members.notYou": "ⵓⵔ ⴷ ⴽⵢⵢⵉ?",
   "make.title": "ⵎⴰ ⵉⵍⵍⴰⵏ ⴼⵍⵍⴰⵙ ⵎⴰ?",
   "make.tagline": "ⴱⴹⵓ ⵜⵉⵎⵙⴰⵖⵉⵏ ⴷ ⵜⵔⴰⴱⴱⵓⵜ ⵏⵏⴽ. ⴱⵍⴰ ⴰⵎⵉⴹⴰⵏ, ⴱⵍⴰ ⵉⵙⴷⴰⵡⵏ, ⴱⴰⵟⵍ.",
   "make.what": "ⵎⴰ ⴷ ⵜⵉⵖⴰⵡⵙⴰ?",
@@ -2746,6 +2814,9 @@ zgh: {
   "err.not_found": "ⵓⵔ ⵉⵜⵜⵡⴰⴼⴰ. ⵉⵖⵢ ⴰⴷ ⵉⵍⵉ ⵉⴽⴽⵙ ⵜ ⵢⴰⵏ.",
 },
 ku: {
+  "err.amount_format": "Mîqdarê wek hejmar binivîse, mînak {example}.",
+  "err.amount_too_large": "Ev mîqdar pir mezin e.",
+  "members.notYou": "ne tu yî?",
   "make.title": "Kî deyndarê çi ye?",
   "make.tagline": "Mesrefan bi koma xwe re parve bike. Bê hesab, bê reklam, belaş.",
   "make.what": "Mijar çi ye?",
@@ -2863,6 +2934,9 @@ ku: {
   "err.not_found": "Nehat dîtin. Dibe ku kesekî jê biribe.",
 },
 sn: {
+  "err.amount_format": "Nyora huwandu nenhamba, semuenzaniso {example}.",
+  "err.amount_too_large": "Huwandu uhwu hwakawandisa.",
+  "members.notYou": "hausi iwe here?",
   "make.title": "Ndiani ane chikwereti chei?",
   "make.tagline": "Govana mari nechikwata chako. Hapana account, hapana zvishambadzo, mahara.",
   "make.what": "Zviri pamusoro pei?",
@@ -2990,7 +3064,7 @@ const PAYPAL = 'ABoullbahaiem';
 const KLEUREN = ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#D55E00', '#56B4E9', '#8E63C6', '#6B7580'];
 const KLEUREN_TEKST = ['#005A8E', '#8A5F00', '#00704F', '#9E4E7C', '#A34800', '#1F6E9C', '#6A47A0', '#4F5964'];
 // Munten die de server aanvaardt, met decimalen (moet gelijk zijn aan CURRENCIES in de worker).
-const MUNTEN = { EUR: 2, USD: 2, GBP: 2, CHF: 2, SEK: 2, NOK: 2, DKK: 2, PLN: 2, CZK: 2, HUF: 2, RON: 2, BGN: 2, UAH: 2, RUB: 2, TRY: 2, MAD: 2, DZD: 2, TND: 3, EGP: 2, NGN: 2, GHS: 2, KES: 2, TZS: 2, UGX: 0, ZAR: 2, XOF: 0, XAF: 0, ETB: 2, ZMW: 2, MZN: 2, AOA: 2, SAR: 2, AED: 2, QAR: 2, KWD: 3, BHD: 3, OMR: 3, JOD: 3, IQD: 3, ILS: 2, IRR: 2, INR: 2, PKR: 2, BDT: 2, LKR: 2, NPR: 2, IDR: 2, MYR: 2, SGD: 2, PHP: 2, VND: 0, THB: 2, CNY: 2, HKD: 2, TWD: 2, JPY: 0, KRW: 0, AUD: 2, NZD: 2, CAD: 2, MXN: 2, BRL: 2, ARS: 2, CLP: 0, COP: 2, PEN: 2 };
+const MUNTEN = { EUR: 2, USD: 2, GBP: 2, CHF: 2, SEK: 2, NOK: 2, DKK: 2, PLN: 2, CZK: 2, HUF: 0, RON: 2, BGN: 2, UAH: 2, RUB: 2, TRY: 2, MAD: 2, DZD: 2, TND: 3, EGP: 2, NGN: 2, GHS: 2, KES: 2, TZS: 0, UGX: 0, ZAR: 2, XOF: 0, XAF: 0, ETB: 2, ZMW: 2, MZN: 2, AOA: 2, SAR: 2, AED: 2, QAR: 2, KWD: 3, BHD: 3, OMR: 3, JOD: 3, IQD: 0, ILS: 2, IRR: 0, INR: 2, PKR: 0, BDT: 2, LKR: 2, NPR: 2, IDR: 0, MYR: 2, SGD: 2, PHP: 2, VND: 0, THB: 2, CNY: 2, HKD: 2, TWD: 2, JPY: 0, KRW: 0, AUD: 2, NZD: 2, CAD: 2, MXN: 2, BRL: 2, ARS: 2, CLP: 0, COP: 0, PEN: 2 };
 // Standaardmunt per regio (voor de startpagina); anders EUR.
 const MUNT_PER_REGIO = { US: 'USD', GB: 'GBP', CH: 'CHF', SE: 'SEK', NO: 'NOK', DK: 'DKK', PL: 'PLN', CZ: 'CZK', HU: 'HUF', RO: 'RON', BG: 'BGN', UA: 'UAH', RU: 'RUB', TR: 'TRY', MA: 'MAD', DZ: 'DZD', TN: 'TND', EG: 'EGP', NG: 'NGN', GH: 'GHS', KE: 'KES', TZ: 'TZS', UG: 'UGX', ZA: 'ZAR', SN: 'XOF', CI: 'XOF', ML: 'XOF', BF: 'XOF', CM: 'XAF', ET: 'ETB', ZM: 'ZMW', MZ: 'MZN', AO: 'AOA', SA: 'SAR', AE: 'AED', QA: 'QAR', KW: 'KWD', BH: 'BHD', OM: 'OMR', JO: 'JOD', IQ: 'IQD', IL: 'ILS', IR: 'IRR', IN: 'INR', PK: 'PKR', BD: 'BDT', LK: 'LKR', NP: 'NPR', ID: 'IDR', MY: 'MYR', SG: 'SGD', PH: 'PHP', VN: 'VND', TH: 'THB', CN: 'CNY', HK: 'HKD', TW: 'TWD', JP: 'JPY', KR: 'KRW', AU: 'AUD', NZ: 'NZD', CA: 'CAD', MX: 'MXN', BR: 'BRL', AR: 'ARS', CL: 'CLP', CO: 'COP', PE: 'PEN', ZW: 'USD' };
 const LS = {
@@ -3097,11 +3171,27 @@ function fmtGeld(centen, munt) {
   const dec = decimalen(m);
   const v = centen / Math.pow(10, dec);
   try {
-    return new Intl.NumberFormat(state.locale + (state.locale.includes('-u-') ? '' : '-u-nu-latn'), { style: 'currency', currency: m, minimumFractionDigits: dec, maximumFractionDigits: dec }).format(v);
+    return new Intl.NumberFormat(state.locale, { style: 'currency', currency: m, minimumFractionDigits: dec, maximumFractionDigits: dec, numberingSystem: 'latn' }).format(v);
   } catch {
     return m + ' ' + v.toFixed(dec);
   }
 }
+// Decimaalteken van de taal, in Latijnse cijfers ("." of ",")
+function decimaalTeken() {
+  try {
+    const d = new Intl.NumberFormat(state.locale, { numberingSystem: 'latn' }).formatToParts(1.5).find((p) => p.type === 'decimal').value;
+    return d === ',' ? ',' : '.';
+  } catch { return '.'; }
+}
+// Cijfers uit andere schriften (Arabisch-Indisch, Perzisch, Devanagari, Bengaals, volle breedte) -> 0-9
+function latijnseCijfers(s) {
+  return String(s).replace(/[\u0660-\u0669\u06F0-\u06F9\u0966-\u096F\u09E6-\u09EF\uFF10-\uFF19]/g, (c) => {
+    const k = c.charCodeAt(0);
+    for (const b of [0x660, 0x6F0, 0x966, 0x9E6, 0xFF10]) if (k >= b && k <= b + 9) return String(k - b);
+    return c;
+  });
+}
+const MAX_CENTEN = 9999999999;
 // Het valutasymbool alleen (voor in het invoerveld), bv. "€" of "US$".
 function muntSymbool(munt) {
   try {
@@ -3110,35 +3200,58 @@ function muntSymbool(munt) {
     return s ? s.value : munt;
   } catch { return munt; }
 }
-// Ingetypt bedrag -> centen (null als ongeldig). Aanvaardt komma en punt, spaties, en
-// duizendtallen ("1.234,56", "1,234.56", "12,5", "12.50", "1200").
-function parseGeld(tekst, munt) {
+// Ingetypt bedrag -> { centen } of { fout: 'format' | 'large' }.
+// Aanvaardt komma of punt als decimaalteken, duizendtallen ("1.234,56", "1,234.56", "1 234,56",
+// "1,00,000"), valutasymbolen en andere cijferschriften. Eén scheider met precies drie cijfers
+// erachter is een duizendtal, behalve bij munten met drie decimalen (dan beslist de taal).
+function leesGeld(tekst, munt) {
   const dec = decimalen(munt);
-  let s = String(tekst || '').trim().replace(/[\s '’]/g, '');
-  s = s.replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x6f0));
-  if (!s) return null;
-  const komma = s.lastIndexOf(','), punt = s.lastIndexOf('.');
-  let scheider = -1;
-  if (komma >= 0 && punt >= 0) scheider = Math.max(komma, punt);            // de laatste is de decimaalscheider
-  else if (komma >= 0) scheider = (s.split(',').length === 2 && s.length - komma - 1 !== 3) || dec === 0 ? komma : (s.split(',').length === 2 ? komma : -1);
-  else if (punt >= 0) scheider = (s.split('.').length === 2 && s.length - punt - 1 !== 3) || dec === 0 ? punt : (s.split('.').length === 2 ? punt : -1);
-  let geheel, frac;
-  if (scheider >= 0) { geheel = s.slice(0, scheider); frac = s.slice(scheider + 1); }
-  else { geheel = s; frac = ''; }
-  geheel = geheel.replace(/[.,]/g, '');
-  if (!/^\d*$/.test(geheel) || !/^\d*$/.test(frac)) return null;
-  if (frac.length > dec) return null;
-  if (!geheel && !frac) return null;
+  let s = latijnseCijfers(tekst).replace(/\u066B/g, '.').replace(/[\u066C\u060C]/g, ',');
+  s = s.replace(/[\s\u00a0\u202f'’`]/g, '');
+  s = s.replace(/^[^\d.,-]+|[^\d.,]+$/g, '');   // "€12", "12 zł", "US$ 5"
+  if (!s || !/^\d[\d.,]*$|^[.,]\d+$/.test(s)) return { fout: 'format' };
+  const groepOk = (g, sep) => new RegExp('^\\d{1,3}(\\' + sep + '\\d{3})+$').test(g) || new RegExp('^\\d{1,2}(\\' + sep + '\\d{2})*\\' + sep + '\\d{3}$').test(g);
+  const heeftK = s.includes(','), heeftP = s.includes('.');
+  let geheel = s, frac = '';
+  if (heeftK && heeftP) {
+    const dsep = s.lastIndexOf(',') > s.lastIndexOf('.') ? ',' : '.';
+    const gsep = dsep === ',' ? '.' : ',';
+    const i = s.lastIndexOf(dsep);
+    geheel = s.slice(0, i); frac = s.slice(i + 1);
+    if (geheel.includes(dsep) || !groepOk(geheel, gsep)) return { fout: 'format' };
+    geheel = geheel.split(gsep).join('');
+  } else if (heeftK || heeftP) {
+    const sep = heeftK ? ',' : '.';
+    const delen = s.split(sep);
+    if (delen.length > 2) {
+      if (!groepOk(s, sep)) return { fout: 'format' };
+      geheel = delen.join('');
+    } else {
+      const [a, b] = delen;
+      const duizendtal = b.length === 3 && a.length >= 1 && a.length <= 3 && (dec !== 3 || sep !== decimaalTeken());
+      if (duizendtal || (b.length === 3 && dec === 0)) { geheel = a + b; }
+      else if (b.length === 0) { geheel = a; }
+      else { geheel = a; frac = b; }
+    }
+  }
+  if (frac.length > dec) return { fout: 'format' };
+  if (!/^\d*$/.test(geheel) || !/^\d*$/.test(frac) || (!geheel && !frac)) return { fout: 'format' };
   const centen = Number(geheel || '0') * Math.pow(10, dec) + Number((frac + '0'.repeat(dec)).slice(0, dec) || '0');
-  return Number.isSafeInteger(centen) ? centen : null;
+  if (!Number.isSafeInteger(centen) || centen > MAX_CENTEN) return { fout: 'large' };
+  return { centen };
+}
+function parseGeld(tekst, munt) { const r = leesGeld(tekst, munt); return r.fout ? null : r.centen; }
+// Aantal delen (gewicht): een geheel getal 0..1000, ook in andere cijferschriften; anders null.
+function parseDelen(tekst) {
+  const s = latijnseCijfers(tekst).trim();
+  if (!/^\d{1,4}$/.test(s)) return null;
+  const n = Number(s);
+  return n <= 1000 ? n : null;
 }
 // centen -> kale tekst voor in een invoerveld ("12.50"), met de decimaalscheider van de taal
 function geldNaarInvoer(centen, munt) {
   const dec = decimalen(munt);
-  const v = (centen / Math.pow(10, dec)).toFixed(dec);
-  let scheider = '.';
-  try { scheider = new Intl.NumberFormat(state.locale).formatToParts(1.5).find((p) => p.type === 'decimal').value; } catch {}
-  return v.replace('.', scheider);
+  return (centen / Math.pow(10, dec)).toFixed(dec).replace('.', decimaalTeken());
 }
 
 const state = {
@@ -3171,7 +3284,7 @@ function t(sleutel, vars) {
     try { vorm = new Intl.PluralRules(state.locale).select(n); } catch {}
     s = s[vorm] !== undefined ? s[vorm] : (s.other !== undefined ? s.other : Object.values(s)[0]);
   }
-  if (vars) for (const k of Object.keys(vars)) s = s.replaceAll('{' + k + '}', String(vars[k]));
+  if (vars) for (const k of Object.keys(vars)) s = s.split('{' + k + '}').join(String(vars[k]));
   return s;
 }
 // Zin met {name}-achtige plaatshouders waarin namen als <bdi> komen (richting geïsoleerd).
@@ -3197,12 +3310,22 @@ function el(tag, cls, tekst) {
 }
 function bdi(tekst) { return el('bdi', null, tekst); }
 
+let schrijfTeller = 0;   // elke schrijfactie verhoogt dit; een verversing die ervoor begon wordt genegeerd
 async function api(pad, methode, body) {
-  const res = await fetch('/api' + pad, {
-    method: methode || 'GET',
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const schrijf = methode && methode !== 'GET';
+  if (schrijf) schrijfTeller++;
+  let res;
+  try {
+    res = await fetch('/api' + pad, {
+      method: methode || 'GET',
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    return { ok: false, status: 0, data: { error: navigator.onLine === false ? 'offline' : 'server' } };
+  } finally {
+    if (schrijf) schrijfTeller++;
+  }
   let data = null;
   try { data = await res.json(); } catch {}
   return { ok: res.ok, status: res.status, data };
@@ -3460,7 +3583,9 @@ function schermGroep(groupId) {
   const titelEditor = el('div', 'titeleditor verborgen');
   const titelIn = el('input'); titelIn.type = 'text'; titelIn.maxLength = 80; titelIn.autocomplete = 'off'; titelIn.dir = 'auto';
   const titelOk = el('button', 'klein'); titelOk.type = 'button';
-  titelEditor.append(titelIn, titelOk);
+  const titelTerug = el('button', 'sec'); titelTerug.type = 'button';
+  const titelFout = el('p', 'titelfout verborgen'); titelFout.setAttribute('role', 'alert');
+  titelEditor.append(titelIn, titelOk, titelTerug);
   const titelActies = el('div', 'titelacties');
   const alleZone = el('span');
   const alleBtn = el('button', 'link gevaar'); alleBtn.type = 'button';
@@ -3470,7 +3595,8 @@ function schermGroep(groupId) {
   alleBevestig.append(alleJa, alleNee);
   alleZone.append(alleBtn, alleBevestig);
   titelActies.append(titelEditBtn, alleZone);
-  titelRij.append(muntBadge, titelKop, titelActies, titelEditor);
+  titelRij.append(muntBadge, titelKop, titelActies, titelEditor, titelFout);
+  titelIn.setAttribute('aria-label', 'title');
 
   const saldiBlok = el('div', 'saldi');
   const transfersBlok = el('div', 'transfers verborgen');
@@ -3514,6 +3640,11 @@ function schermGroep(groupId) {
   window.addEventListener('offline', () => toonFout('err.offline'));
   window.addEventListener('online', () => { verbergFout(); state.lastJson = ''; haalOp(true); });
   saldiBlok.setAttribute('role', 'status'); saldiBlok.setAttribute('aria-live', 'polite');
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (state.wegVraag) { const id = state.wegVraag; state.wegVraag = null; state.focusNa = '.chip-x[data-x="' + id + '"]'; render(); }
+    else if (state.verwijderVraag) { const id = state.verwijderVraag; state.verwijderVraag = null; state.focusNa = '.item[data-id="' + id + '"] button.gevaar'; render(); }
+  });
   naamFout.setAttribute('role', 'alert');
 
   const lay = el('div', 'lay');
@@ -3531,8 +3662,10 @@ function schermGroep(groupId) {
     return m ? m.name : '?';
   }
   function lidNaam(id) { return id === state.own ? t('you') : echteNaam(id); }
+  // vaste kleur per lid, in volgorde van toetreden (ook weggehaalde leden houden hun plaats)
   function kleurIdx(id) {
-    const i = ledenEnWeg().findIndex((m) => m.id === id);
+    const volg = (state.data && state.data.order) || ledenEnWeg().map((m) => m.id);
+    const i = volg.indexOf(id);
     return (i >= 0 ? i : 0) % KLEUREN.length;
   }
   function kleurVan(id) { return KLEUREN[kleurIdx(id)]; }
@@ -3542,7 +3675,7 @@ function schermGroep(groupId) {
     const stip = el('span', 'stip'); stip.style.background = kleurVan(id);
     const m = ledenEnWeg().find((x) => x.id === id);
     s.append(stip, bdi(m ? m.name : '?'));
-    if (alsJij && id === state.own) s.append(document.createTextNode(' (' + t('you') + ')'));
+    if (alsJij && id === state.own) s.append(el('span', null, '(' + t('you') + ')'));
     return s;
   }
   function geld(c) { return fmtGeld(c, state.data.currency); }
@@ -3583,15 +3716,21 @@ function schermGroep(groupId) {
     titelKop.classList.add('verborgen'); titelEditBtn.classList.add('verborgen'); titelEditor.classList.remove('verborgen');
     titelIn.focus();
   });
-  async function bewaarTitel() {
-    const r = await api('/groups/' + groupId + '/title', 'PUT', { title: titelIn.value });
+  function sluitTitel() {
     state.titelEdit = false;
+    titelFout.classList.add('verborgen');
     titelEditor.classList.add('verborgen'); titelKop.classList.remove('verborgen'); titelEditBtn.classList.remove('verborgen');
-    if (r.ok) { state.lastJson = ''; await haalOp(true); }
-    else { ledenFout.textContent = foutTekst(r.data); ledenFout.classList.remove('verborgen'); }
+  }
+  async function bewaarTitel() {
+    titelFout.classList.add('verborgen');
+    if (!titelIn.value.trim()) { titelFout.textContent = t('err.title_required'); titelFout.classList.remove('verborgen'); titelIn.focus(); return; }
+    const r = await api('/groups/' + groupId + '/title', 'PUT', { title: titelIn.value });
+    if (r.ok) { sluitTitel(); state.lastJson = ''; await haalOp(true); titelEditBtn.focus(); }
+    else { titelFout.textContent = foutTekst(r.data); titelFout.classList.remove('verborgen'); }
   }
   titelOk.addEventListener('click', bewaarTitel);
-  titelIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') bewaarTitel(); });
+  titelTerug.addEventListener('click', () => { sluitTitel(); titelEditBtn.focus(); });
+  titelIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') bewaarTitel(); if (e.key === 'Escape') { sluitTitel(); titelEditBtn.focus(); } });
 
   /* --- hele groep verwijderen --- */
   alleBtn.addEventListener('click', () => { alleBtn.classList.add('verborgen'); alleBevestig.classList.remove('verborgen'); });
@@ -3610,11 +3749,18 @@ function schermGroep(groupId) {
   });
 
   /* --- identiteit en leden --- */
+  // jij bent dit lid (in deze browser); de betaler in het formulier volgt, tenzij je die zelf koos
+  function zetIk(mid, naam) {
+    state.own = mid;
+    try {
+      if (mid) { localStorage.setItem(LS.m(groupId), mid); if (naam) localStorage.setItem(LS.name, naam); }
+      else localStorage.removeItem(LS.m(groupId));
+    } catch {}
+  }
   async function wordZelf(naam) {
     const r = await api('/groups/' + groupId + '/members', 'POST', { name: naam });
     if (r.ok && r.data && r.data.memberId) {
-      state.own = r.data.memberId;
-      try { localStorage.setItem(LS.m(groupId), state.own); localStorage.setItem(LS.name, r.data.name); } catch {}
+      zetIk(r.data.memberId, r.data.name);
       state.lastJson = ''; await haalOp(true);
       return true;
     }
@@ -3640,7 +3786,7 @@ function schermGroep(groupId) {
     state.wegVraag = null;
     ledenFout.classList.add('verborgen');
     if (r.ok || r.status === 404) {
-      if (mid === state.own) { state.own = null; try { localStorage.removeItem(LS.m(groupId)); } catch {} }
+      if (mid === state.own) zetIk(null);
       state.lastJson = ''; await haalOp(true);
     } else {
       ledenFout.textContent = foutTekst(r.data, { name: naam });
@@ -3650,11 +3796,15 @@ function schermGroep(groupId) {
   }
 
   /* --- betaling markeren (wie betaalt wie) --- */
-  async function markeerBetaald(tr, knop) {
+  async function markeerBetaald(tr, knop, rij) {
     knop.disabled = true;
     const r = await api('/groups/' + groupId + '/settlements', 'POST', { from: tr.from, to: tr.to, amount: tr.amount, date: isoDag(new Date()) });
     if (r.ok) { state.lastJson = ''; await haalOp(true); }
-    else { knop.disabled = false; ledenFout.textContent = foutTekst(r.data); ledenFout.classList.remove('verborgen'); }
+    else {
+      knop.disabled = false;
+      const f = el('p', 'fout', foutTekst(r.data)); f.setAttribute('role', 'alert');
+      rij.append(f);
+    }
   }
 
   /* --- formulier: uitgave toevoegen of aanpassen --- */
@@ -3670,8 +3820,10 @@ function schermGroep(groupId) {
   const fWie = el('select'); fWie.id = 'fwie';
   const fDatumLabel = el('label', 'label'); fDatumLabel.htmlFor = 'fdatum';
   const fDatum = el('input'); fDatum.type = 'date'; fDatum.id = 'fdatum';
-  const fSplitLabel = el('p', 'label');
-  const fSplitKeuze = el('div', 'splitkeuze');
+  const fSplitLabel = el('p', 'label'); fSplitLabel.id = 'fsplitlabel';
+  const fSplitKeuze = el('div', 'splitkeuze'); fSplitKeuze.setAttribute('role', 'group'); fSplitKeuze.setAttribute('aria-labelledby', 'fsplitlabel');
+  let fWieGekozen = false;   // koos de gebruiker zelf wie betaalde?
+  fDatum.min = '2000-01-01';
   const fVerdeling = el('div', 'verdeling');
   const fRest = el('p', 'rest verborgen');
   const fFout = el('p', 'fout verborgen'); fFout.setAttribute('role', 'alert');
@@ -3683,26 +3835,44 @@ function schermGroep(groupId) {
   c1.append(fBedragLabel, fBedragVeld); c2.append(fDatumLabel, fDatum); rij1.append(c1, c2);
   form.append(fKop, fWatLabel, fWat, rij1, fWieLabel, fWie, fSplitLabel, fSplitKeuze, fVerdeling, fRest, fFout, fKnoppen);
   fDatum.value = isoDag(new Date());
+  fDatum.max = isoDag(new Date(Date.now() + 86400000));
   const SPLITS = ['equal', 'some', 'exact', 'shares'];
   // per lid: aangevinkt (some), bedrag (exact), delen (shares); blijft bewaard tussen renders
   const fSel = new Map();
+  // de vier knoppen één keer maken en daarna alleen bijwerken (focus blijft staan)
+  for (const sp of SPLITS) {
+    const b = el('button'); b.type = 'button'; b.dataset.split = sp;
+    b.addEventListener('click', () => { state.split = sp; fFout.classList.add('verborgen'); splitKnoppen(); bouwVerdeling(); });
+    fSplitKeuze.append(b);
+  }
   function splitKnoppen() {
-    fSplitKeuze.textContent = '';
-    for (const s of SPLITS) {
-      const b = el('button', s === state.split ? 'actief' : null, t('expense.split.' + s));
-      b.type = 'button'; b.dataset.split = s;
-      b.setAttribute('aria-pressed', s === state.split ? 'true' : 'false');
-      b.addEventListener('click', () => { state.split = s; splitKnoppen(); bouwVerdeling(); });
-      fSplitKeuze.append(b);
+    for (const b of fSplitKeuze.children) {
+      const aan = b.dataset.split === state.split;
+      b.textContent = t('expense.split.' + b.dataset.split);
+      b.classList.toggle('actief', aan);
+      b.setAttribute('aria-pressed', aan ? 'true' : 'false');
     }
   }
   function huidigBedrag() { return parseGeld(fBedrag.value, state.data.currency); }
+  function formLeden() {
+    const actief = leden();
+    if (!state.bewerk || !state.data) return actief;
+    const e = state.data.expenses.find((x) => x.id === state.bewerk);
+    if (!e) return actief;
+    const extra = [e.paidBy, ...e.shares.map((x) => x.memberId)]
+      .filter((id, i, a) => a.indexOf(id) === i && !actief.some((m) => m.id === id))
+      .map((id) => (state.data.removed || []).find((m) => m.id === id)).filter(Boolean);
+    return actief.concat(extra.map((m) => ({ id: m.id, name: m.name, weg: true })));
+  }
+  let verdelingSleutel = '';
   function bouwVerdeling() {
     fVerdeling.textContent = '';
     fRest.classList.add('verborgen');
+    verdelingSleutel = state.split + '|' + formLeden().map((m) => m.id).join(',');
     if (state.split === 'equal') { toonPreview(); return; }
-    for (const m of leden()) {
-      if (!fSel.has(m.id)) fSel.set(m.id, { aan: true, bedrag: '', delen: '1' });
+    for (const m of formLeden()) {
+      // bij aanpassen doen nieuwe leden standaard niet mee (anders verandert een oude uitgave stil)
+      if (!fSel.has(m.id)) fSel.set(m.id, state.bewerk ? { aan: false, bedrag: '', delen: '0' } : { aan: true, bedrag: '', delen: '1' });
       const st = fSel.get(m.id);
       const rij = el('div', 'verdeelrij');
       const lab = el('label');
@@ -3715,16 +3885,17 @@ function schermGroep(groupId) {
         lab.append(stip);
       }
       lab.append(bdi(m.name));
+      if (m.weg) lab.append(el('span', 'deel-preview', '· ' + t('balances.removed')));
       rij.append(lab);
       if (state.split === 'exact') {
         const inp = el('input'); inp.type = 'text'; inp.inputMode = 'decimal'; inp.value = st.bedrag; inp.dataset.mid = m.id; inp.dir = 'ltr';
         inp.setAttribute('aria-label', m.name + ': ' + t('expense.amount'));
-        inp.addEventListener('input', () => { st.bedrag = inp.value; toonPreview(); });
+        inp.addEventListener('input', () => { st.bedrag = inp.value; fFout.classList.add('verborgen'); toonPreview(); });
         rij.append(inp);
       } else if (state.split === 'shares') {
         const inp = el('input'); inp.type = 'text'; inp.inputMode = 'numeric'; inp.value = st.delen; inp.dataset.mid = m.id; inp.dir = 'ltr';
         inp.setAttribute('aria-label', m.name + ': ' + t('expense.split.shares'));
-        inp.addEventListener('input', () => { st.delen = inp.value; toonPreview(); });
+        inp.addEventListener('input', () => { st.delen = inp.value; fFout.classList.add('verborgen'); toonPreview(); });
         rij.append(inp);
       }
       const pv = el('span', 'deel-preview'); pv.dataset.mid = m.id;
@@ -3744,11 +3915,11 @@ function schermGroep(groupId) {
       if (state.split === 'equal') {
         verdeling = verdeelGelijk(bedrag, leden().map((m) => m.id), wie);
       } else if (state.split === 'some') {
-        const ids = leden().map((m) => m.id).filter((id) => (fSel.get(id) || {}).aan);
+        const ids = formLeden().map((m) => m.id).filter((id) => (fSel.get(id) || {}).aan);
         if (ids.length) verdeling = verdeelGelijk(bedrag, ids, wie);
       } else if (state.split === 'exact') {
         let som = 0;
-        for (const m of leden()) { const c = parseGeld((fSel.get(m.id) || {}).bedrag, munt) || 0; verdeling.set(m.id, c); som += c; }
+        for (const m of formLeden()) { const c = parseGeld((fSel.get(m.id) || {}).bedrag, munt) || 0; verdeling.set(m.id, c); som += c; }
         const rest = bedrag - som;
         if (rest !== 0) {
           fRest.textContent = rest > 0 ? t('expense.remaining', { amount: fmtGeld(rest, munt) }) : t('expense.over', { amount: fmtGeld(-rest, munt) });
@@ -3756,47 +3927,65 @@ function schermGroep(groupId) {
         }
       } else if (state.split === 'shares') {
         const w = {};
-        for (const m of leden()) { const n = parseInt((fSel.get(m.id) || {}).delen, 10); if (n > 0) w[m.id] = n; }
+        for (const m of formLeden()) { const n = parseDelen((fSel.get(m.id) || {}).delen); if (n > 0) w[m.id] = n; }
         if (Object.keys(w).length) verdeling = verdeelGewogen(bedrag, w, wie);
       }
+    }
+    // velden die niet te lezen zijn rood markeren
+    for (const inp of fVerdeling.querySelectorAll('input[type="text"]')) {
+      const st = fSel.get(inp.dataset.mid) || {};
+      const leeg = !inp.value.trim();
+      const ok = state.split === 'exact' ? (leeg || parseGeld(inp.value, munt) !== null) : (leeg || parseDelen(inp.value) !== null);
+      inp.setAttribute('aria-invalid', ok ? 'false' : 'true');
     }
     for (const pv of fVerdeling.querySelectorAll('.deel-preview')) {
       const c = verdeling.get(pv.dataset.mid);
       pv.textContent = (state.split === 'exact' || c === undefined) ? '' : fmtGeld(c, munt);
     }
   }
-  fBedrag.addEventListener('input', toonPreview);
-  fWie.addEventListener('change', toonPreview);
+  fBedrag.addEventListener('input', () => { fFout.classList.add('verborgen'); toonPreview(); });
+  fWat.addEventListener('input', () => fFout.classList.add('verborgen'));
+  fWie.addEventListener('change', () => { fWieGekozen = true; toonPreview(); });
+  // betaler-lijst: jij standaard; een zelfgekozen betaler of (bij aanpassen) de bestaande blijft staan
   function vulWie() {
     const oud = fWie.value;
+    const lijst = formLeden();
     fWie.textContent = '';
-    for (const m of leden()) {
-      const o = el('option', null, m.id === state.own ? m.name + ' (' + t('you') + ')' : m.name); o.value = m.id;
+    for (const m of lijst) {
+      // naam geïsoleerd (U+2068/U+2069), zodat haakjes in RTL niet verspringen
+      const naam = '\u2068' + m.name + '\u2069';
+      const o = el('option', null, m.id === state.own ? naam + ' (' + t('you') + ')' : m.weg ? naam + ' · ' + t('balances.removed') : naam); o.value = m.id;
       fWie.append(o);
     }
-    if (oud && leden().some((m) => m.id === oud)) fWie.value = oud;
-    else if (state.own && leden().some((m) => m.id === state.own)) fWie.value = state.own;
+    const heeft = (id) => lijst.some((m) => m.id === id);
+    if ((fWieGekozen || state.bewerk) && oud && heeft(oud)) fWie.value = oud;
+    else if (state.own && heeft(state.own)) fWie.value = state.own;
+    else if (oud && heeft(oud)) fWie.value = oud;
   }
   function formLeeg() {
     state.bewerk = null;
+    fWieGekozen = false;
     fWat.value = ''; fBedrag.value = ''; fDatum.value = isoDag(new Date());
     state.split = 'equal'; fSel.clear();
+    vulWie();
     if (state.own) fWie.value = state.own;
     fFout.classList.add('verborgen');
     splitKnoppen(); bouwVerdeling(); hertaalForm();
   }
   function formVul(e) {
     state.bewerk = e.id;
+    fWieGekozen = false;
     fWat.value = e.description;
     fBedrag.value = geldNaarInvoer(e.amount, state.data.currency);
     fDatum.value = e.date;
+    vulWie();
     fWie.value = e.paidBy;
     fSel.clear();
     const inShares = new Set(e.shares.map((s) => s.memberId));
     const alle = leden().length === inShares.size && leden().every((m) => inShares.has(m.id));
     if (e.split === 'equal') state.split = alle ? 'equal' : 'some';
     else state.split = e.split;
-    for (const m of leden()) {
+    for (const m of formLeden()) {
       const s = e.shares.find((x) => x.memberId === m.id);
       fSel.set(m.id, { aan: !!s, bedrag: s ? geldNaarInvoer(s.share, state.data.currency) : '', delen: s && s.weight ? String(s.weight) : (s ? '1' : '0') });
     }
@@ -3816,28 +4005,44 @@ function schermGroep(groupId) {
     fOk.textContent = state.bewerk ? t('expense.saveEdit') : t('expense.save');
     fAnnuleer.textContent = t('expense.cancel');
     fAnnuleer.classList.toggle('verborgen', !state.bewerk);
+    // ruimte voor het valutasymbool ("€", "KWD", "US$") in het bedragveld
+    requestAnimationFrame(() => { const w = fSymbool.getBoundingClientRect().width; if (w) fBedrag.style.paddingInlineStart = Math.ceil(w + 20) + 'px'; });
   }
   fAnnuleer.addEventListener('click', () => formLeeg());
   fOk.addEventListener('click', async () => {
     fFout.classList.add('verborgen');
     const munt = state.data.currency;
-    const bedrag = parseGeld(fBedrag.value, munt);
-    if (!fWat.value.trim()) { fFout.textContent = t('err.description_required'); fFout.classList.remove('verborgen'); fWat.focus(); return; }
-    if (!bedrag) { fFout.textContent = t('err.invalid_amount'); fFout.classList.remove('verborgen'); fBedrag.focus(); return; }
+    const gelezen = leesGeld(fBedrag.value, munt);
+    const bedrag = gelezen.centen;
+    const toon = (tekst, veld) => { fFout.textContent = tekst; fFout.classList.remove('verborgen'); if (veld) veld.focus(); };
+    if (!fWat.value.trim()) { toon(t('err.description_required'), fWat); return; }
+    if (gelezen.fout === 'large') { toon(t('err.amount_too_large'), fBedrag); return; }
+    if (gelezen.fout === 'format' && fBedrag.value.trim()) { toon(t('err.amount_format', { example: geldNaarInvoer(decimalen(munt) === 0 ? 1250 : 1250 * Math.pow(10, decimalen(munt) - 2), munt) }), fBedrag); return; }
+    if (!bedrag) { toon(t('err.invalid_amount'), fBedrag); return; }
     const body = { description: fWat.value, amount: bedrag, paidBy: fWie.value, date: fDatum.value };
     if (state.split === 'equal') { body.split = 'equal'; }
     else if (state.split === 'some') {
       body.split = 'equal';
-      body.members = leden().map((m) => m.id).filter((id) => (fSel.get(id) || {}).aan);
+      body.members = formLeden().map((m) => m.id).filter((id) => (fSel.get(id) || {}).aan);
       if (!body.members.length) { fFout.textContent = t('expense.pickOne'); fFout.classList.remove('verborgen'); return; }
     } else if (state.split === 'exact') {
       body.split = 'exact'; body.shares = {};
       let som = 0;
-      for (const m of leden()) { const c = parseGeld((fSel.get(m.id) || {}).bedrag, munt) || 0; if (c > 0) body.shares[m.id] = c; som += c; }
+      for (const m of formLeden()) {
+        const tekst = (fSel.get(m.id) || {}).bedrag || '';
+        const c = tekst.trim() ? parseGeld(tekst, munt) : 0;
+        if (c === null) { toon(t('err.invalid_split')); return; }
+        if (c > 0) body.shares[m.id] = c; som += c;
+      }
       if (som !== bedrag) { fFout.textContent = t('err.shares_mismatch'); fFout.classList.remove('verborgen'); return; }
     } else {
       body.split = 'shares'; body.weights = {};
-      for (const m of leden()) { const n = parseInt((fSel.get(m.id) || {}).delen, 10); if (n > 0) body.weights[m.id] = n; }
+      for (const m of formLeden()) {
+        const tekst = (fSel.get(m.id) || {}).delen || '';
+        const n = tekst.trim() ? parseDelen(tekst) : 0;
+        if (n === null) { toon(t('err.invalid_split')); return; }
+        if (n > 0) body.weights[m.id] = n;
+      }
       if (!Object.keys(body.weights).length) { fFout.textContent = t('expense.pickOne'); fFout.classList.remove('verborgen'); return; }
     }
     fOk.disabled = true;
@@ -3917,7 +4122,7 @@ function schermGroep(groupId) {
       const sl = tr.from === state.own ? 'transfers.youPay' : tr.to === state.own ? 'transfers.paysYou' : 'transfers.line';
       z.append(zin(sl, { from: van, to: naar, amount: el('b', null, geld(tr.amount)) }));
       const knop = el('button', 'klein', t('transfers.mark')); knop.type = 'button';
-      knop.addEventListener('click', () => markeerBetaald(tr, knop));
+      knop.addEventListener('click', () => markeerBetaald(tr, knop, rij));
       rij.append(z, knop);
       transfersBlok.append(rij);
     }
@@ -3974,7 +4179,7 @@ function schermGroep(groupId) {
         const ja = el('button', 'link gevaar', t('expense.deleteYes')); ja.type = 'button';
         ja.addEventListener('click', () => verwijderItem(it.soort, e.id));
         const nee = el('button', 'link', t('never.mind')); nee.type = 'button';
-        nee.addEventListener('click', () => { state.verwijderVraag = null; render(); });
+        nee.addEventListener('click', () => { state.verwijderVraag = null; state.focusNa = '.item[data-id="' + e.id + '"] button.gevaar'; render(); });
         acties.append(ja, nee);
       } else {
         if (it.soort === 'expenses') {
@@ -3983,7 +4188,7 @@ function schermGroep(groupId) {
           acties.append(bew);
         }
         const del = el('button', 'link gevaar', t('expense.delete')); del.type = 'button';
-        del.addEventListener('click', () => { state.verwijderVraag = e.id; render(); });
+        del.addEventListener('click', () => { state.verwijderVraag = e.id; state.focusNa = '.item[data-id="' + e.id + '"] button.gevaar'; render(); });
         acties.append(del);
       }
       rij.append(acties);
@@ -4005,6 +4210,7 @@ function schermGroep(groupId) {
     muntBadge.textContent = d.currency;
     titelEditBtn.textContent = t('title.edit');
     titelOk.textContent = t('title.save');
+    titelTerug.textContent = t('expense.cancel');
     titelIn.placeholder = t('make.what.ph');
     alleBtn.textContent = t('group.delete'); alleJa.textContent = t('group.deleteYes'); alleNee.textContent = t('never.mind');
     deelTekst.textContent = (netGemaakt ? t('share.ready') : t('share.link')) + ' ';
@@ -4023,26 +4229,35 @@ function schermGroep(groupId) {
         const ja = el('button', 'ja', t('members.removeYes', { name: m.name })); ja.type = 'button';
         const nee = el('button', 'nee', t('never.mind')); nee.type = 'button';
         ja.addEventListener('click', () => haalWeg(m.id));
-        nee.addEventListener('click', () => { state.wegVraag = null; render(); });
+        nee.addEventListener('click', () => { state.wegVraag = null; state.focusNa = '.chip-x[data-x="' + m.id + '"]'; render(); });
         vraag.append(ja, nee); chips.append(vraag); continue;
       }
       const wrap = el('span', 'chipwrap');
-      const b = el('button', 'chip' + (m.id === state.own ? ' ik' : '')); b.type = 'button'; b.dataset.mid = m.id;
+      // zolang je niet weet wie je bent, is elke naam een knop ("dat ben ik"); daarna gewone labels
+      const b = el(state.own ? 'span' : 'button', 'chip' + (m.id === state.own ? ' ik' : '') + (state.own ? ' stil' : ''));
+      if (!state.own) b.type = 'button';
+      b.dataset.mid = m.id;
       const stip = el('span', 'stip'); stip.style.background = kleurVan(m.id);
-      b.append(stip, bdi(m.name), el('span', null, m.id === state.own ? ' (' + t('you') + ')' : ''));
-      b.addEventListener('click', async () => {
-        if (state.own) return;
-        state.own = m.id;
-        try { localStorage.setItem(LS.m(groupId), m.id); localStorage.setItem(LS.name, m.name); } catch {}
+      b.append(stip, bdi(m.name));
+      if (m.id === state.own) b.append(el('span', null, '(' + t('you') + ')'));
+      if (!state.own) b.addEventListener('click', async () => {
+        zetIk(m.id, m.name);
         state.lastJson = ''; await haalOp(true);
       });
       wrap.append(b);
-      const x = el('button', 'chip-x'); x.type = 'button';
-      x.append(el('span', null, '×'));
-      x.setAttribute('aria-label', t('members.remove', { name: m.name })); x.title = t('members.remove', { name: m.name });
-      x.addEventListener('click', (e) => { e.stopPropagation(); state.wegVraag = m.id; render(); });
-      wrap.append(x);
+      if (state.own) {
+        const x = el('button', 'chip-x'); x.type = 'button'; x.dataset.x = m.id;
+        x.append(el('span', null, '×'));
+        x.setAttribute('aria-label', t('members.remove', { name: m.name })); x.title = t('members.remove', { name: m.name });
+        x.addEventListener('click', (e) => { e.stopPropagation(); state.wegVraag = m.id; state.focusNa = '.chipvraag .ja'; render(); });
+        wrap.append(x);
+      }
       chips.append(wrap);
+      if (m.id === state.own) {
+        const nietIk = el('button', 'nietik', t('members.notYou')); nietIk.type = 'button';
+        nietIk.addEventListener('click', () => { zetIk(null); state.lastJson = ''; render(); naamIn.focus(); });
+        chips.append(nietIk);
+      }
     }
     const plus = el('button', 'chip toevoegen', '+ ' + t('members.add')); plus.type = 'button';
     plus.setAttribute('aria-expanded', state.nieuwOpen ? 'true' : 'false');
@@ -4064,22 +4279,31 @@ function schermGroep(groupId) {
     bezoek.classList.remove('verborgen');
 
     const actief = document.activeElement;
-    const focusMid = actief && actief.dataset ? actief.dataset.mid : null;
-    const focusForm = form.contains(actief);
+    const focusMid = actief && chips.contains(actief) && actief.dataset ? actief.dataset.mid : null;
+    const inVerdeling = fVerdeling.contains(actief);
 
     vulWie();
-    if (!focusForm) { splitKnoppen(); bouwVerdeling(); } else { splitKnoppen(); toonPreview(); }
+    splitKnoppen();
+    const sleutel = state.split + '|' + formLeden().map((m) => m.id).join(',');
+    if (sleutel !== verdelingSleutel && !inVerdeling) bouwVerdeling(); else toonPreview();
     hertaalForm();
-    bouwSaldi();
+    // saldi alleen opnieuw opbouwen als ze echt veranderden (schermlezers lezen dit blok voor)
+    const saldiSleutel = state.lang + '|' + state.own + '|' + JSON.stringify([d.balances, d.transfers, d.expenses.length, d.settlements.length, d.removed]);
+    if (saldiSleutel !== state.saldiSleutel) { state.saldiSleutel = saldiSleutel; bouwSaldi(); }
     bouwLijst();
 
-    if (focusMid) {
+    if (state.focusNa) {
+      const doel = scherm.querySelector(state.focusNa);
+      state.focusNa = null;
+      if (doel) doel.focus({ preventScroll: true });
+    } else if (focusMid) {
       const terug = chips.querySelector('.chip[data-mid="' + focusMid + '"]');
       if (terug) terug.focus({ preventScroll: true });
     }
   }
 
   function schermOnbekend() {
+    clearInterval(verversTimer);
     recentVergeet(groupId);
     scherm.textContent = '';
     const kop = el('h1', null, t('notfound.title'));
@@ -4090,8 +4314,12 @@ function schermGroep(groupId) {
     hertaal = () => { kop.textContent = t('notfound.title'); tekst.textContent = t('notfound.text'); knop.textContent = t('notfound.new'); };
   }
 
+  let volgnr = 0, toegepast = 0, gestopt = false;
   async function haalOp(forceer) {
-    let res, tekst;
+    if (gestopt) return;
+    const nr = ++volgnr;
+    const teller = schrijfTeller;
+    let res, tekst, data;
     try {
       res = await fetch('/api/groups/' + groupId, { cache: 'no-store' });
       tekst = await res.text();
@@ -4099,20 +4327,20 @@ function schermGroep(groupId) {
       toonFout(navigator.onLine === false ? 'err.offline' : 'err.server');
       return;
     }
-    if (res.status === 404) { schermOnbekend(); return; }
+    if (res.status === 404) { gestopt = true; schermOnbekend(); return; }
     if (!res.ok) { toonFout('err.server'); return; }
+    try { data = JSON.parse(tekst); } catch { toonFout('err.server'); return; }
     verbergFout();
-    if (!forceer && state.inflight > 0) return;
+    // een antwoord dat ouder is dan wat al getoond wordt, of dat vertrok vóór of tijdens een
+    // schrijfactie, zou nieuwe gegevens overschrijven (bv. een al betaalde schuld terugzetten)
+    if (nr < toegepast) return;
+    if (!forceer && teller !== schrijfTeller) return;
     if (tekst === state.lastJson) return;
-    // niet her-renderen terwijl iemand in het formulier typt (behalve geforceerd)
-    if (!forceer && form.contains(document.activeElement)) return;
+    toegepast = nr;
     state.lastJson = tekst;
-    state.data = JSON.parse(tekst);
+    state.data = data;
     recentBewaar(groupId, state.data.title);
-    if (state.own && !state.data.members.some((m) => m.id === state.own)) {
-      state.own = null;
-      try { localStorage.removeItem(LS.m(groupId)); } catch {}
-    }
+    if (state.own && !state.data.members.some((m) => m.id === state.own)) zetIk(null);
     render();
   }
   hertaal = render;
@@ -4122,10 +4350,10 @@ function schermGroep(groupId) {
       if (localStorage.getItem(LS.visited(groupId))) return;
       localStorage.setItem(LS.visited(groupId), '1');
     } catch {}
-    try { await api('/groups/' + groupId + '/visit', 'POST', {}); state.lastJson = ''; await haalOp(true); } catch {}
+    await api('/groups/' + groupId + '/visit', 'POST'); state.lastJson = ''; await haalOp(true);
   }
   haalOp(true).then(telBezoek);
-  setInterval(() => { if (!document.hidden) haalOp(false); }, 10000);
+  const verversTimer = setInterval(() => { if (!document.hidden) haalOp(false); }, 10000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') haalOp(false); });
 }
 

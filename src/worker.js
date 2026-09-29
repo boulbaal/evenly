@@ -44,11 +44,11 @@ const OG_LOCALE = { en: 'en_GB', nl: 'nl_BE', fr: 'fr_BE', de: 'de_DE', es: 'es_
 // Toegelaten munten en hun aantal decimalen (ISO 4217). Bedragen worden in de
 // kleinste eenheid opgeslagen; de frontend toont ze met Intl.NumberFormat.
 export const CURRENCIES = {
-  EUR: 2, USD: 2, GBP: 2, CHF: 2, SEK: 2, NOK: 2, DKK: 2, PLN: 2, CZK: 2, HUF: 2, RON: 2, BGN: 2, UAH: 2, RUB: 2, TRY: 2,
-  MAD: 2, DZD: 2, TND: 3, EGP: 2, NGN: 2, GHS: 2, KES: 2, TZS: 2, UGX: 0, ZAR: 2, XOF: 0, XAF: 0, ETB: 2, ZMW: 2, MZN: 2, AOA: 2,
-  SAR: 2, AED: 2, QAR: 2, KWD: 3, BHD: 3, OMR: 3, JOD: 3, IQD: 3, ILS: 2, IRR: 2,
-  INR: 2, PKR: 2, BDT: 2, LKR: 2, NPR: 2, IDR: 2, MYR: 2, SGD: 2, PHP: 2, VND: 0, THB: 2, CNY: 2, HKD: 2, TWD: 2, JPY: 0, KRW: 0,
-  AUD: 2, NZD: 2, CAD: 2, MXN: 2, BRL: 2, ARS: 2, CLP: 0, COP: 2, PEN: 2,
+  EUR: 2, USD: 2, GBP: 2, CHF: 2, SEK: 2, NOK: 2, DKK: 2, PLN: 2, CZK: 2, HUF: 0, RON: 2, BGN: 2, UAH: 2, RUB: 2, TRY: 2,
+  MAD: 2, DZD: 2, TND: 3, EGP: 2, NGN: 2, GHS: 2, KES: 2, TZS: 0, UGX: 0, ZAR: 2, XOF: 0, XAF: 0, ETB: 2, ZMW: 2, MZN: 2, AOA: 2,
+  SAR: 2, AED: 2, QAR: 2, KWD: 3, BHD: 3, OMR: 3, JOD: 3, IQD: 0, ILS: 2, IRR: 0,
+  INR: 2, PKR: 0, BDT: 2, LKR: 2, NPR: 2, IDR: 0, MYR: 2, SGD: 2, PHP: 2, VND: 0, THB: 2, CNY: 2, HKD: 2, TWD: 2, JPY: 0, KRW: 0,
+  AUD: 2, NZD: 2, CAD: 2, MXN: 2, BRL: 2, ARS: 2, CLP: 0, COP: 0, PEN: 2,
 };
 
 function escHtml(s) {
@@ -129,7 +129,8 @@ const APP_VERSION = RAW_VERSION.startsWith('__') ? 'dev' : RAW_VERSION;
 
 const MAX_BODY = 32 * 1024;
 const MAX_MEMBERS = 100;
-const MAX_EXPENSES = 2000;
+const MAX_EXPENSES = 2000;     // incl. zacht verwijderde (die verdwijnen na 30 dagen)
+const MAX_SETTLEMENTS = 2000;
 const MAX_AMOUNT = 9_999_999_999; // in centen: 99.999.999,99
 const ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const ACTIVITEIT_DAGEN = 365;
@@ -155,12 +156,15 @@ function now() {
   return new Date().toISOString();
 }
 function normKey(name) {
-  return name.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
+  return name.normalize('NFKC').toUpperCase().toLowerCase().replace(/\s+/g, ' ');
 }
+// Tekst van een gebruiker: NFKC, zonder stuur- en opmaaktekens (zero-width, bidi-overrides,
+// zachte afbreekstreepjes), vreemde spaties -> gewone spatie, en minstens één letter of cijfer.
 function cleanText(raw, max) {
   if (typeof raw !== 'string') return null;
-  const t = raw.normalize('NFKC').replace(/[\u0000-\u001f\u007f]/g, '').trim();
-  return t.length >= 1 && t.length <= max ? t : null;
+  const t = raw.normalize('NFKC').replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/[\p{Zs}\u2800]+/gu, ' ').trim();
+  if (!/[\p{L}\p{N}]/u.test(t)) return null;
+  return t.length <= max ? t : null;
 }
 const cleanTitle = (r) => cleanText(r, 80);
 const cleanName = (r) => cleanText(r, 40);
@@ -185,6 +189,8 @@ function validCurrency(c) {
 }
 
 async function readBody(request) {
+  const len = Number(request.headers.get('Content-Length') || 0);
+  if (len > MAX_BODY) return null;
   let text;
   try {
     text = await request.text();
@@ -220,7 +226,8 @@ export function verdeelGelijk(amount, members, paidBy) {
   return out;
 }
 
-// Verdeelt naar gewichten (bv. 2:1:1). Grootste-rest-methode, restcenten zoals hierboven.
+// Verdeelt naar gewichten (bv. 2:1:1): eerst naar beneden afgerond, de restcenten (minder dan
+// het aantal leden) eerst naar de betaler en dan in volgorde, zoals hierboven.
 export function verdeelGewogen(amount, weights, paidBy) {
   const members = Object.keys(weights);
   const totaal = members.reduce((s, m) => s + weights[m], 0);
@@ -262,9 +269,16 @@ export function berekenSaldi(memberIds, expenses, settlements) {
 export function berekenOverschrijvingen(net, volgorde) {
   const rang = new Map(volgorde.map((m, i) => [m, i]));
   const cmp = (a, b) => b.v - a.v || rang.get(a.m) - rang.get(b.m);
-  const schuld = [...net].filter(([, v]) => v < 0).map(([m, v]) => ({ m, v: -v })).sort(cmp);
-  const tegoed = [...net].filter(([, v]) => v > 0).map(([m, v]) => ({ m, v })).sort(cmp);
+  let schuld = [...net].filter(([, v]) => v < 0).map(([m, v]) => ({ m, v: -v })).sort(cmp);
+  let tegoed = [...net].filter(([, v]) => v > 0).map(([m, v]) => ({ m, v })).sort(cmp);
   const out = [];
+  // eerst wie precies evenveel moet als een ander tegoed heeft: dat is één betaling in plaats van twee
+  for (const s of schuld) {
+    const t = tegoed.find((x) => x.v > 0 && x.v === s.v);
+    if (t) { out.push({ from: s.m, to: t.m, amount: s.v }); t.v = 0; s.v = 0; }
+  }
+  schuld = schuld.filter((x) => x.v > 0);
+  tegoed = tegoed.filter((x) => x.v > 0);
   let i = 0, j = 0;
   while (i < schuld.length && j < tegoed.length) {
     const bedrag = Math.min(schuld[i].v, tegoed[j].v);
@@ -336,10 +350,17 @@ async function getFullGroup(env, id) {
     balances: saldoLeden.map((m) => ({ memberId: m.id, net: net.get(m.id) || 0 })),
     transfers: berekenOverschrijvingen(netRelevant, alleIds),
     // info voor de groep: "iemand heeft ... verwijderd" (geen fout van de app)
-    removedExpenses: expRes.results.filter((e) => e.deleted_at).map((e) => ({ description: e.description, amount: e.amount, deletedAt: e.deleted_at })),
+    removedExpenses: expRes.results.filter((e) => e.deleted_at).sort((a, b) => (a.deleted_at < b.deleted_at ? 1 : -1)).slice(0, 10)
+      .map((e) => ({ description: e.description, amount: e.amount, deletedAt: e.deleted_at })),
+    // vaste volgorde van alle leden (ook weggehaalde), zodat kleuren niet verschuiven
+    order: memRes.results.map((m) => m.id),
   };
 }
 
+async function groupMember(env, groupId, mid) {
+  if (typeof mid !== 'string') return null;
+  return env.DB.prepare('SELECT id, deleted_at FROM members WHERE id = ? AND group_id = ?').bind(mid, groupId).first();
+}
 async function activeMember(env, groupId, mid) {
   if (typeof mid !== 'string') return null;
   return env.DB.prepare('SELECT id FROM members WHERE id = ? AND group_id = ? AND deleted_at IS NULL').bind(mid, groupId).first();
@@ -373,25 +394,26 @@ async function joinGroup(env, groupId, body) {
   const key = normKey(name);
   const existing = await env.DB.prepare('SELECT id, name, deleted_at FROM members WHERE group_id = ? AND name_key = ?')
     .bind(groupId, key).first();
+  const onderLimiet = '(SELECT COUNT(*) FROM members WHERE group_id = ? AND deleted_at IS NULL) < ' + MAX_MEMBERS;
   if (existing) {
     if (existing.deleted_at) {
-      await env.DB.batch([
-        env.DB.prepare('UPDATE members SET deleted_at = NULL, name = ? WHERE id = ?').bind(name, existing.id),
+      const [r] = await env.DB.batch([
+        env.DB.prepare(`UPDATE members SET deleted_at = NULL, name = ? WHERE id = ? AND ${onderLimiet}`).bind(name, existing.id, groupId),
         raak(env, groupId),
       ]);
+      if (!r.meta.changes) return fail('limit_reached');
       return json({ memberId: existing.id, name });
     }
     return json({ memberId: existing.id, name: existing.name });
   }
-  const aantal = await env.DB.prepare('SELECT COUNT(*) AS c FROM members WHERE group_id = ? AND deleted_at IS NULL').bind(groupId).first();
-  if (aantal && aantal.c >= MAX_MEMBERS) return fail('limit_reached');
   const id = newId();
   try {
-    await env.DB.batch([
-      env.DB.prepare('INSERT INTO members (id, group_id, name, name_key, created_at) VALUES (?, ?, ?, ?, ?)')
-        .bind(id, groupId, name, key, now()),
+    const [r] = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO members (id, group_id, name, name_key, created_at) SELECT ?, ?, ?, ?, ? WHERE ${onderLimiet}`)
+        .bind(id, groupId, name, key, now(), groupId),
       raak(env, groupId),
     ]);
+    if (!r.meta.changes) return fail('limit_reached');
   } catch {
     const winner = await env.DB.prepare('SELECT id, name FROM members WHERE group_id = ? AND name_key = ?').bind(groupId, key).first();
     if (winner) return json({ memberId: winner.id, name: winner.name });
@@ -401,33 +423,43 @@ async function joinGroup(env, groupId, body) {
 }
 
 // DELETE /api/groups/:id/members/:mid — alleen als het saldo 0 is
+// Saldo van één lid, in SQL (zelfde regels als berekenSaldi), zodat het weghalen atomisch kan.
+const SALDO_SQL = `(
+  COALESCE((SELECT SUM(amount) FROM expenses WHERE paid_by = members.id AND deleted_at IS NULL), 0)
+  - COALESCE((SELECT SUM(s.share) FROM expense_shares s JOIN expenses e ON e.id = s.expense_id WHERE s.member_id = members.id AND e.deleted_at IS NULL), 0)
+  + COALESCE((SELECT SUM(amount) FROM settlements WHERE from_member = members.id AND deleted_at IS NULL), 0)
+  - COALESCE((SELECT SUM(amount) FROM settlements WHERE to_member = members.id AND deleted_at IS NULL), 0)
+)`;
 async function deleteMember(env, groupId, mid) {
   const member = await activeMember(env, groupId, mid);
   if (!member) return fail('not_found', 404);
-  const full = await getFullGroup(env, groupId);
-  const saldo = full.balances.find((b) => b.memberId === mid);
-  if (saldo && saldo.net !== 0) return fail('has_balance', 409);
-  await env.DB.batch([
-    env.DB.prepare('UPDATE members SET deleted_at = ? WHERE id = ?').bind(now(), mid),
+  const [r] = await env.DB.batch([
+    env.DB.prepare(`UPDATE members SET deleted_at = ? WHERE id = ? AND group_id = ? AND deleted_at IS NULL AND ${SALDO_SQL} = 0`).bind(now(), mid, groupId),
     raak(env, groupId),
   ]);
+  if (!r.meta.changes) return fail('has_balance', 409);
   return json({});
 }
 
 // Zet de body van een uitgave om naar { description, amount, paidBy, date, split, shares: Map }
 // of geeft een foutcode terug.
-async function parseExpense(env, groupId, body) {
+// bestaand = id's die al op de uitgave stonden (betaler en deelnemers); die mogen blijven,
+// ook als ze intussen weggehaald zijn, zodat een oude uitgave altijd aan te passen is.
+async function parseExpense(env, groupId, body, bestaand = []) {
   const description = cleanDescription(body.description);
   if (!description) return { error: 'description_required' };
   if (!validAmount(body.amount)) return { error: 'invalid_amount' };
   if (!validDate(body.date)) return { error: 'invalid_date' };
-  const leden = await env.DB.prepare('SELECT id FROM members WHERE group_id = ? AND deleted_at IS NULL ORDER BY created_at, id').bind(groupId).all();
-  const actief = leden.results.map((m) => m.id);
+  if (typeof body.paidBy !== 'string') return { error: 'invalid_split' };
+  const leden = await env.DB.prepare('SELECT id, deleted_at FROM members WHERE group_id = ? ORDER BY created_at, id').bind(groupId).all();
+  const actiefAlleen = leden.results.filter((m) => !m.deleted_at).map((m) => m.id);
+  const actief = leden.results.filter((m) => !m.deleted_at || bestaand.includes(m.id)).map((m) => m.id);
   if (!actief.includes(body.paidBy)) return { error: 'member_not_found' };
   const split = body.split;
   let shares;
   if (split === 'equal') {
-    const gekozen = Array.isArray(body.members) ? [...new Set(body.members)] : actief;
+    if ('members' in body && !(Array.isArray(body.members) && body.members.every((m) => typeof m === 'string'))) return { error: 'invalid_split' };
+    const gekozen = Array.isArray(body.members) ? [...new Set(body.members)] : actiefAlleen;
     if (!gekozen.length || gekozen.some((m) => !actief.includes(m))) return { error: 'invalid_split' };
     const geordend = actief.filter((m) => gekozen.includes(m));
     shares = verdeelGelijk(body.amount, geordend, body.paidBy);
@@ -468,39 +500,48 @@ async function parseExpense(env, groupId, body) {
   return { description, amount: body.amount, paidBy: body.paidBy, date: body.date, split, shares: rijen };
 }
 
+function aandelenInvoegen(env, expenseId, shares) {
+  const rijen = JSON.stringify(shares.map((s) => ({ m: s.memberId, s: s.share, w: s.weight })));
+  return env.DB.prepare(`INSERT INTO expense_shares (expense_id, member_id, share, weight)
+    SELECT ?, json_extract(value, '$.m'), json_extract(value, '$.s'), json_extract(value, '$.w') FROM json_each(?)`).bind(expenseId, rijen);
+}
+
 // POST /api/groups/:id/expenses
 async function addExpense(env, groupId, body) {
   const group = await getGroup(env, groupId);
   if (!group) return fail('not_found', 404);
-  const aantal = await env.DB.prepare('SELECT COUNT(*) AS c FROM expenses WHERE group_id = ? AND deleted_at IS NULL').bind(groupId).first();
+  const aantal = await env.DB.prepare('SELECT COUNT(*) AS c FROM expenses WHERE group_id = ?').bind(groupId).first();
   if (aantal && aantal.c >= MAX_EXPENSES) return fail('limit_reached');
   const e = await parseExpense(env, groupId, body);
   if (e.error) return fail(e.error, e.error === 'member_not_found' ? 404 : 400);
   const id = newId();
   const ts = now();
-  const stmts = [
+  await env.DB.batch([
     env.DB.prepare('INSERT INTO expenses (id, group_id, description, amount, paid_by, date, split, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(id, groupId, e.description, e.amount, e.paidBy, e.date, e.split, ts),
-    ...e.shares.map((s) => env.DB.prepare('INSERT INTO expense_shares (expense_id, member_id, share, weight) VALUES (?, ?, ?, ?)')
-      .bind(id, s.memberId, s.share, s.weight)),
+    aandelenInvoegen(env, id, e.shares),
+    // werd een betrokken lid net (gelijktijdig) weggehaald: dan is het weer actief, anders
+    // zou een weggehaald lid een saldo krijgen
+    env.DB.prepare(`UPDATE members SET deleted_at = NULL WHERE group_id = ? AND deleted_at IS NOT NULL
+      AND id IN (SELECT member_id FROM expense_shares WHERE expense_id = ? UNION SELECT paid_by FROM expenses WHERE id = ?)`).bind(groupId, id, id),
     raak(env, groupId),
-  ];
-  await env.DB.batch(stmts);
+  ]);
   return json({ expenseId: id }, 201);
 }
 
 // PUT /api/groups/:id/expenses/:eid — volledig vervangen
 async function updateExpense(env, groupId, eid, body) {
-  const bestaand = await env.DB.prepare('SELECT id FROM expenses WHERE id = ? AND group_id = ? AND deleted_at IS NULL').bind(eid, groupId).first();
+  const bestaand = await env.DB.prepare('SELECT id, paid_by FROM expenses WHERE id = ? AND group_id = ? AND deleted_at IS NULL').bind(eid, groupId).first();
   if (!bestaand) return fail('not_found', 404);
-  const e = await parseExpense(env, groupId, body);
+  const oud = await env.DB.prepare('SELECT member_id FROM expense_shares WHERE expense_id = ?').bind(eid).all();
+  const betrokken = [bestaand.paid_by, ...oud.results.map((r) => r.member_id)];
+  const e = await parseExpense(env, groupId, body, betrokken);
   if (e.error) return fail(e.error, e.error === 'member_not_found' ? 404 : 400);
   await env.DB.batch([
-    env.DB.prepare('UPDATE expenses SET description = ?, amount = ?, paid_by = ?, date = ?, split = ?, updated_at = ? WHERE id = ?')
+    env.DB.prepare('UPDATE expenses SET description = ?, amount = ?, paid_by = ?, date = ?, split = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL')
       .bind(e.description, e.amount, e.paidBy, e.date, e.split, now(), eid),
     env.DB.prepare('DELETE FROM expense_shares WHERE expense_id = ?').bind(eid),
-    ...e.shares.map((s) => env.DB.prepare('INSERT INTO expense_shares (expense_id, member_id, share, weight) VALUES (?, ?, ?, ?)')
-      .bind(eid, s.memberId, s.share, s.weight)),
+    aandelenInvoegen(env, eid, e.shares),
     raak(env, groupId),
   ]);
   return json({});
@@ -523,9 +564,12 @@ async function addSettlement(env, groupId, body) {
   if (!group) return fail('not_found', 404);
   if (!validAmount(body.amount)) return fail('invalid_amount');
   if (!validDate(body.date)) return fail('invalid_date');
-  if (body.from === body.to) return fail('invalid_split');
-  const [a, b] = await Promise.all([activeMember(env, groupId, body.from), activeMember(env, groupId, body.to)]);
+  if (typeof body.from !== 'string' || typeof body.to !== 'string' || body.from === body.to) return fail('invalid_split');
+  // weggehaalde leden mogen: zo kan een saldo dat na hun vertrek ontstond toch vereffend worden
+  const [a, b] = await Promise.all([groupMember(env, groupId, body.from), groupMember(env, groupId, body.to)]);
   if (!a || !b) return fail('member_not_found', 404);
+  const aantal = await env.DB.prepare('SELECT COUNT(*) AS c FROM settlements WHERE group_id = ?').bind(groupId).first();
+  if (aantal && aantal.c >= MAX_SETTLEMENTS) return fail('limit_reached');
   const id = newId();
   await env.DB.batch([
     env.DB.prepare('INSERT INTO settlements (id, group_id, from_member, to_member, amount, date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -575,12 +619,10 @@ async function putCurrency(env, groupId, body) {
   const group = await getGroup(env, groupId);
   if (!group) return fail('not_found', 404);
   if (!validCurrency(body.currency)) return fail('invalid_currency');
-  const [e, s] = await env.DB.batch([
-    env.DB.prepare('SELECT COUNT(*) AS c FROM expenses WHERE group_id = ? AND deleted_at IS NULL').bind(groupId),
-    env.DB.prepare('SELECT COUNT(*) AS c FROM settlements WHERE group_id = ? AND deleted_at IS NULL').bind(groupId),
-  ]);
-  if (e.results[0].c > 0 || s.results[0].c > 0) return fail('currency_locked', 409);
-  await env.DB.prepare('UPDATE groups SET currency = ?, last_activity_at = ? WHERE id = ?').bind(body.currency, now(), groupId).run();
+  const r = await env.DB.prepare(`UPDATE groups SET currency = ?, last_activity_at = ? WHERE id = ?
+    AND NOT EXISTS (SELECT 1 FROM expenses WHERE group_id = groups.id)
+    AND NOT EXISTS (SELECT 1 FROM settlements WHERE group_id = groups.id)`).bind(body.currency, now(), groupId).run();
+  if (!r.meta.changes) return fail('currency_locked', 409);
   return json({});
 }
 
@@ -660,7 +702,8 @@ export default {
       if (p.length === 3 && method === 'DELETE') return await deleteGroup(env, groupId);
 
       const sub = p[3];
-      const body = (method === 'POST' || method === 'PUT') ? await readBody(request) : {};
+      const heeftBody = (method === 'POST' || method === 'PUT') && sub !== 'visit';
+      const body = heeftBody ? await readBody(request) : {};
       if (body === null) return fail('generic');
 
       if (sub === 'members' && p.length === 4 && method === 'POST') return await joinGroup(env, groupId, body);
