@@ -1,0 +1,33 @@
+name = "evenly"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
+binding = "ASSETS"
+# alleen deze paden gaan door de worker (taalpagina's, noindex op /g/*); de rest is puur statisch
+run_worker_first = ["/api/*", "/__scheduled", "/", "/g/*", "/en", "/nl", "/fr", "/de", "/es", "/pt", "/pl", "/uk", "/ru", "/tr", "/ar", "/ur", "/hi", "/bn", "/id", "/vi", "/zh", "/ja", "/ko", "/sw", "/zgh", "/ku", "/sn", "/en/", "/nl/", "/fr/", "/de/", "/es/", "/pt/", "/pl/", "/uk/", "/ru/", "/tr/", "/ar/", "/ur/", "/hi/", "/bn/", "/id/", "/vi/", "/zh/", "/ja/", "/ko/", "/sw/", "/zgh/", "/ku/", "/sn/"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "evenly"
+database_id = "VUL-IN-NA-D1-CREATE"
+
+# Rate limiting per IP: groepen aanmaken 20/min, andere schrijfacties 120/min.
+[[ratelimits]]
+name = "RL_CREATE"
+namespace_id = "2001"
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "RL_WRITE"
+namespace_id = "2002"
+simple = { limit = 120, period = 60 }
+
+[observability]
+enabled = true
+
+# dagelijkse opruiming van oude groepen (zie scheduled() in de worker)
+[triggers]
+crons = ["23 3 * * *"]

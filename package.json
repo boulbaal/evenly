@@ -1,0 +1,17 @@
+{
+  "name": "evenly",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "node tools/deploy.mjs",
+    "deploy:dirty": "node tools/deploy.mjs --allow-dirty",
+    "db:local": "wrangler d1 execute evenly --local --file=schema.sql",
+    "db:remote": "wrangler d1 execute evenly --remote --file=schema.sql",
+    "pages": "python3 tools/gen_pages.py",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50",
+    "wrangler": "^4"
+  }
+}
