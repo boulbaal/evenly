@@ -863,7 +863,7 @@ test.describe('Statisch', () => {
   });
 
   test('PayPal.me-naam is de bestaande (ABoulbahaiem, één l)', () => {
-    // paypal.me/ABoullbahaiem (twee keer l) bestaat niet: elke doneerknop liep dood
+    // de oude naam met twee keer l na "Bou" bestaat niet op paypal.me: elke doneerknop liep dood
     expect(/const PAYPAL = '([^']+)'/.exec(html)[1]).toBe('ABoulbahaiem');
   });
 });
