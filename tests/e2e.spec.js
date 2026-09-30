@@ -861,4 +861,9 @@ test.describe('Statisch', () => {
     };
     for (const f of ['verdeelGelijk', 'verdeelGewogen']) expect(uit(html, f), f).toBe(uit(worker, f));
   });
+
+  test('PayPal.me-naam is de bestaande (ABoulbahaiem, één l)', () => {
+    // paypal.me/ABoullbahaiem (twee keer l) bestaat niet: elke doneerknop liep dood
+    expect(/const PAYPAL = '([^']+)'/.exec(html)[1]).toBe('ABoulbahaiem');
+  });
 });
