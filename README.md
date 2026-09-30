@@ -2,6 +2,8 @@
 
 **Split costs with your group. No account, no ads, free.** → **[evenly.vanali.workers.dev](https://evenly.vanali.workers.dev)**
 
+![Evenly: balances and who pays whom for a group trip](promo/assets/shot-group-en.png)
+
 Create a group, share the link, add expenses. Evenly keeps the balances and shows the fewest payments needed to settle up. Nobody needs an account, not even the person who creates the group.
 
 - **No sign-up, no e-mail, no password.** A link is all a group needs.
@@ -14,6 +16,8 @@ Create a group, share the link, add expenses. Evenly keeps the balances and show
 - **Open source (MIT)** on Cloudflare Workers + D1; fits in Cloudflare's free plan.
 
 Sister project: [Whenly](https://github.com/boulbaal/whenly), pick a date with a group. Questions or bugs: [open an issue](https://github.com/boulbaal/evenly/issues).
+
+Evenly is free and stays free. If it saved your group an argument, you can [buy the maker a coffee via PayPal](https://www.paypal.com/paypalme/ABoulbahaiem).
 
 ---
 
